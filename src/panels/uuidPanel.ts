@@ -117,12 +117,12 @@ export class UUIDPanel {
 
     // UUID v1 implementation
     private uuidv1(): string {
-        const now = Date.now();
-        const timestamp = now * 10000 + 0x01b21dd213814000;
+        const now = BigInt(Date.now());
+        const timestamp = now * 10000n + 0x01b21dd213814000n;
 
-        const timeLow = (timestamp & 0xffffffff).toString(16).padStart(8, '0');
-        const timeMid = ((timestamp / 0x100000000) & 0xffff).toString(16).padStart(4, '0');
-        const timeHi = (((timestamp / 0x1000000000000) & 0x0fff) | 0x1000).toString(16).padStart(4, '0');
+        const timeLow = (timestamp & 0xffffffffn).toString(16).padStart(8, '0');
+        const timeMid = ((timestamp >> 32n) & 0xffffn).toString(16).padStart(4, '0');
+        const timeHi = (((timestamp >> 48n) & 0x0fffn) | 0x1000n).toString(16).padStart(4, '0');
 
         const clockSeq = crypto.randomBytes(2);
         clockSeq[0] = (clockSeq[0] & 0x3f) | 0x80;
