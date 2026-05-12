@@ -2,7 +2,7 @@
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
     "description": "Essential developer utilities for MuleSoft and beyond: AES encryption, Base64, JWT, UUID, data formatting, certificate tools, and more.",
-    "version": "0.0.2",
+    "version": "0.0.1",
     "publisher": "framedparadox",
     "license": "MIT",
     "icon": "resources/electric.png",
