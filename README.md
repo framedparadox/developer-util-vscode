@@ -81,4 +81,11 @@ The encryption button automatically appears when editing:
 
 ---
 
+## Credits
+
+Icons are based on [Font Awesome Free](https://fontawesome.com/) 6 (`lock`,
+`gear`, `shield-halved`), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+---
+
 **Enjoy secure MuleSoft development!**

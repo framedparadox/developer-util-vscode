@@ -5,7 +5,7 @@
     "version": "0.0.2",
     "publisher": "framedparadox",
     "license": "MIT",
-    "icon": "resources/electric.png",
+    "icon": "resources/icon.png",
     "keywords": [
         "mulesoft",
         "aes",
@@ -36,7 +36,7 @@
                 {
                     "id": "devx-explorer",
                     "title": "DevX",
-                    "icon": "resources/electric-h.png"
+                    "icon": "resources/icons/brand.svg"
                 }
             ]
         },
@@ -45,7 +45,7 @@
                 {
                     "id": "devxToolsView",
                     "name": "Tools",
-                    "icon": "resources/electric.png",
+                    "icon": "resources/icons/brand.svg",
                     "type": "webview"
                 }
             ]
@@ -54,10 +54,7 @@
             {
                 "command": "devx.aesEncryptDecrypt",
                 "title": "Mulesoft AES Encrypt / Decrypt",
-                "icon": {
-                    "light": "resources/aes.png",
-                    "dark": "resources/aes.png"
-                }
+                "icon": "resources/icons/aes.svg"
             },
             {
                 "command": "devx.openSettings",

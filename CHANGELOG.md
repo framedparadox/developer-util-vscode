@@ -13,6 +13,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
     compact display mode.
   - Removed now-unused dependencies (monaco-editor, react, d3, js-yaml,
     papaparse, fast-xml-parser) and related webpack loaders.
+- Replaced all logos/icons with high-quality Font Awesome Free 6 based artwork
+  (lock for AES, gear for settings, shield for the activity bar) and a new
+  256×256 marketplace icon. Removed the old `electric`/`aes` PNGs.
 - Renamed AES tool to `Mulesoft AES Encrypt / Decrypt` across command and UI labels.
 - Replaced AES `Environment` terminology with `KeyIdentifier` across UI, storage model, and documentation.
 - Refactored project structure:
