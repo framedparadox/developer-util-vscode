@@ -1,7 +1,1 @@
-export {
-    DevXToolsProvider,
-    AESSettingsPanel,
-    ConfigSidebarPanel,
-    getGeneralPreferences,
-    getAesKeyIdentifiers,
-} from './devxToolsProvider';
+export { DevXToolsProvider, SettingsPanel, getAesKeyIdentifiers } from './devxToolsProvider';

@@ -1,7 +1,7 @@
 {
     "name": "dev-x",
-    "displayName": "Developer Utility Tools",
-    "description": "Essential developer utilities for MuleSoft and beyond: AES encryption, Base64, JWT, UUID, data formatting, certificate tools, and more.",
+    "displayName": "Mulesoft AES Encrypt / Decrypt",
+    "description": "Encrypt and decrypt text using MuleSoft AES-256.",
     "version": "0.0.2",
     "publisher": "framedparadox",
     "license": "MIT",
@@ -11,15 +11,6 @@
         "aes",
         "encrypt",
         "decrypt",
-        "base64",
-        "jwt",
-        "uuid",
-        "formatter",
-        "xml",
-        "json",
-        "yaml",
-        "csv",
-        "certificate",
         "developer tools"
     ],
     "repository": {
@@ -69,86 +60,8 @@
                 }
             },
             {
-                "command": "devx.aesEncryptDecryptGeneric",
-                "title": "AES Encrypt / Decrypt",
-                "icon": {
-                    "light": "resources/aes.png",
-                    "dark": "resources/aes.png"
-                }
-            },
-            {
-                "command": "devx.base64Tool",
-                "title": "Base64 Encode/Decode",
-                "icon": {
-                    "light": "resources/64.png",
-                    "dark": "resources/64.png"
-                }
-            },
-            {
-                "command": "devx.jwtDebugger",
-                "title": "JWT Debugger",
-                "icon": {
-                    "light": "resources/jwt.png",
-                    "dark": "resources/jwt.png"
-                }
-            },
-            {
-                "command": "devx.uuidGenerator",
-                "title": "UUID Generator",
-                "icon": "$(symbol-misc)"
-            },
-            {
-                "command": "devx.escapeTool",
-                "title": "Format Text",
-                "icon": "$(symbol-keyword)"
-            },
-            {
-                "command": "devx.formatterTool",
-                "title": "Data Formatter",
-                "icon": {
-                    "light": "resources/align-justify.png",
-                    "dark": "resources/align-justify.png"
-                }
-            },
-            {
-                "command": "devx.certificateTool",
-                "title": "Certificate Tools",
-                "icon": "$(shield)"
-            },
-            {
-                "command": "devx.certificateExpiryChecker",
-                "title": "Certificate Expiry Checker",
-                "icon": "$(calendar)"
-            },
-            {
-                "command": "devx.visualizerTool",
-                "title": "Data Visualizer",
-                "icon": {
-                    "light": "resources/electric.png",
-                    "dark": "resources/electric.png"
-                }
-            },
-            {
-                "command": "devx.visualizerFromFile",
-                "title": "Visualize Data",
-                "icon": {
-                    "light": "resources/electric.png",
-                    "dark": "resources/electric.png"
-                }
-            },
-            {
-                "command": "devx.dataConverter",
-                "title": "Data Converter",
-                "icon": "$(sync)"
-            },
-            {
-                "command": "devx.aesSettings",
-                "title": "AES Settings",
-                "icon": "$(key)"
-            },
-            {
-                "command": "devx.configureSidebar",
-                "title": "Configure Sidebar",
+                "command": "devx.openSettings",
+                "title": "Settings",
                 "icon": "$(gear)"
             },
             {
@@ -162,11 +75,6 @@
                 {
                     "command": "devx.aesEncryptDecrypt",
                     "when": "resourceLangId == yaml || resourceExtname == .properties",
-                    "group": "navigation"
-                },
-                {
-                    "command": "devx.visualizerFromFile",
-                    "when": "resourceLangId == json || resourceLangId == yaml || resourceLangId == xml || resourceExtname == .csv || resourceExtname == .raml",
                     "group": "navigation"
                 }
             ],
@@ -195,35 +103,18 @@
         "build": "webpack --mode development"
     },
     "devDependencies": {
-        "@types/d3": "^7.4.3",
-        "@types/js-yaml": "^4.0.9",
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
-        "@types/papaparse": "^5.3.16",
-        "@types/react": "^19.2.2",
-        "@types/react-dom": "^19.2.2",
         "@types/vscode": "^1.105.0",
         "@typescript-eslint/eslint-plugin": "^8.45.0",
         "@typescript-eslint/parser": "^8.45.0",
         "@vscode/test-cli": "^0.0.11",
         "@vscode/test-electron": "^2.5.2",
-        "css-loader": "^7.1.2",
         "eslint": "^9.36.0",
-        "monaco-editor-webpack-plugin": "^7.1.1",
         "prettier": "^3.6.2",
-        "style-loader": "^4.0.0",
         "ts-loader": "^9.5.4",
         "typescript": "^5.9.3",
         "webpack": "^5.102.0",
         "webpack-cli": "^6.0.1"
-    },
-    "dependencies": {
-        "d3": "^7.9.0",
-        "fast-xml-parser": "^5.3.0",
-        "js-yaml": "^4.1.0",
-        "monaco-editor": "^0.54.0",
-        "papaparse": "^5.5.3",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0"
     }
 }

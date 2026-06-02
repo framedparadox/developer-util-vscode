@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+- Stripped the extension down to the **Mulesoft AES Encrypt / Decrypt** tool only.
+  - Removed the generic AES, Base64, JWT, UUID, Format Text, Data Formatter,
+    Certificate, Certificate Expiry, Data Visualizer, and Data Converter tools.
+  - Simplified the Settings page to only AES KeyIdentifier settings and the
+    compact display mode.
+  - Removed now-unused dependencies (monaco-editor, react, d3, js-yaml,
+    papaparse, fast-xml-parser) and related webpack loaders.
 - Renamed AES tool to `Mulesoft AES Encrypt / Decrypt` across command and UI labels.
 - Replaced AES `Environment` terminology with `KeyIdentifier` across UI, storage model, and documentation.
 - Refactored project structure:
