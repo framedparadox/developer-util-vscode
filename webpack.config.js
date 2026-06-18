@@ -3,7 +3,6 @@
 'use strict';
 
 const path = require('path');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -26,7 +25,7 @@ const extensionConfig = {
     },
     resolve: {
         // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
-        extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        extensions: ['.ts', '.js'],
     },
     module: {
         rules: [
@@ -44,30 +43,6 @@ const extensionConfig = {
                         },
                     },
                 ],
-            },
-            {
-                test: /\.tsx?$/,
-                exclude: /node_modules/,
-                use: [
-                    {
-                        loader: 'ts-loader',
-                        options: {
-                            transpileOnly: true,
-                            compilerOptions: {
-                                jsx: 'react',
-                                noEmit: false,
-                            },
-                        },
-                    },
-                ],
-            },
-            {
-                test: /\.css$/,
-                use: ['style-loader', 'css-loader'],
-            },
-            {
-                test: /\.ttf$/,
-                type: 'asset/resource',
             },
         ],
     },

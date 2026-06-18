@@ -2,22 +2,11 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-
-interface Certificate {
-    id: string;
-    name: string;
-    owner: string;
-    type: string;
-    expiryDate: string;
-    filePath: string;
-    stored: boolean;
-    issuer?: string;
-    validFrom?: string;
-    serialNumber?: string;
-    fingerprint?: string;
-    algorithm?: string;
-    format?: string;
-}
+import {
+    SUPPORTED_CERTIFICATE_EXTENSIONS,
+    ScannedCertificate,
+    scanCertificateFile,
+} from '../certificates/certificateUtils';
 
 export class CertificateExpiryPanel {
     public static currentPanel: CertificateExpiryPanel | undefined;
@@ -36,13 +25,7 @@ export class CertificateExpiryPanel {
                         this.handleOpenFolder();
                         return;
                     case 'scanCertificates':
-                        this.handleScanCertificates(message.folderPath, message.storeNew);
-                        return;
-                    case 'parseCertificateFile':
-                        this.handleParseCertificateFile(message.fileName, message.content, message.storeNew);
-                        return;
-                    case 'storeCertificate':
-                        this.handleStoreCertificate(message.id, message.filePath);
+                        this.handleScanCertificates(message.folderPath);
                         return;
                 }
             },
@@ -101,67 +84,8 @@ export class CertificateExpiryPanel {
         }
     }
 
-    private async handleParseCertificateFile(fileName: string, content: string | ArrayBuffer, storeNew: boolean) {
+    private async handleScanCertificates(folderPath: string) {
         try {
-            let certContent: string;
-
-            // Extract file extension for format
-            const fileExt = fileName.split('.').pop()?.toLowerCase() || 'unknown';
-            const format = fileExt.toUpperCase();
-
-            // Convert ArrayBuffer to string if needed
-            if (content instanceof ArrayBuffer) {
-                const buffer = Buffer.from(content);
-                const possiblePem = buffer.toString('utf-8');
-                if (possiblePem.includes('BEGIN CERTIFICATE')) {
-                    certContent = possiblePem;
-                } else {
-                    // DER format - convert to PEM
-                    const base64 = buffer.toString('base64');
-                    certContent = `-----BEGIN CERTIFICATE-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
-                }
-            } else {
-                certContent = content;
-            }
-
-            if (certContent.includes('BEGIN CERTIFICATE')) {
-                const cert = new crypto.X509Certificate(certContent);
-
-                const certificate: Certificate = {
-                    id: this.generateId(),
-                    name: fileName,
-                    owner: this.extractCommonName(cert.subject),
-                    type: this.determineCertType(cert),
-                    expiryDate: cert.validTo,
-                    filePath: fileName,
-                    stored: storeNew,
-                    issuer: this.extractCommonName(cert.issuer),
-                    validFrom: cert.validFrom,
-                    serialNumber: cert.serialNumber,
-                    fingerprint: cert.fingerprint,
-                    algorithm: this.extractAlgorithm(cert),
-                    format: format,
-                };
-
-                this._panel.webview.postMessage({
-                    command: 'certificateParsed',
-                    certificate: certificate,
-                });
-            } else {
-                throw new Error('Invalid certificate format');
-            }
-        } catch (error) {
-            this._panel.webview.postMessage({
-                command: 'certificateParseError',
-                fileName: fileName,
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-    }
-
-    private async handleScanCertificates(folderPath: string, storeNew: boolean) {
-        try {
-
             if (!folderPath || folderPath.trim() === '') {
                 this._panel.webview.postMessage({
                     command: 'error',
@@ -187,49 +111,14 @@ export class CertificateExpiryPanel {
                 return;
             }
 
-            const certificates: Certificate[] = [];
+            const certificates: ScannedCertificate[] = [];
             const files = this.getAllFiles(folderPath);
-            // Extended list of certificate file extensions
-            const certExtensions = [
-                '.crt', // Certificate file
-                '.cer', // Certificate file (alternative)
-                '.cert', // Certificate file (alternative)
-                '.pem', // Privacy Enhanced Mail (Base64 encoded)
-                '.der', // Distinguished Encoding Rules (binary)
-                '.p7b', // PKCS#7 certificate
-                '.p7c', // PKCS#7 certificate (alternative)
-                '.p7s', // PKCS#7 signature
-                '.pfx', // PKCS#12 (contains certificate and private key)
-                '.p12', // PKCS#12 (alternative)
-                '.key', // Private key file (may contain certificate)
-                '.csr', // Certificate Signing Request
-                '.ca-bundle', // CA bundle
-                '.ca', // Certificate Authority
-                '.bundle', // Certificate bundle
-            ];
 
             for (const file of files) {
                 const ext = path.extname(file).toLowerCase();
-                if (certExtensions.includes(ext)) {
+                if (SUPPORTED_CERTIFICATE_EXTENSIONS.includes(ext)) {
                     try {
-                        const certInfo = await this.parseCertificate(file);
-                        if (certInfo) {
-                            certificates.push({
-                                id: this.generateId(),
-                                name: path.basename(file),
-                                owner: certInfo.subject,
-                                type: certInfo.type,
-                                expiryDate: certInfo.expiryDate,
-                                filePath: file,
-                                stored: storeNew,
-                                issuer: certInfo.issuer,
-                                validFrom: certInfo.validFrom,
-                                serialNumber: certInfo.serialNumber,
-                                fingerprint: certInfo.fingerprint,
-                                algorithm: certInfo.algorithm,
-                                format: certInfo.format,
-                            });
-                        }
+                        certificates.push(scanCertificateFile(file));
                     } catch {
                         // Skip files that can't be parsed
                     }
@@ -239,7 +128,7 @@ export class CertificateExpiryPanel {
             if (certificates.length === 0) {
                 this._panel.webview.postMessage({
                     command: 'error',
-                    message: `No valid certificates found in ${folderPath}. Supported formats: .crt, .cer, .cert, .pem, .der, .p7b, .p7c, .p7s, .pfx, .p12, .key, .csr, .ca-bundle, .ca, .bundle`,
+                    message: `No valid certificates found in ${folderPath}. Supported formats: ${SUPPORTED_CERTIFICATE_EXTENSIONS.join(', ')}`,
                 });
                 return;
             }
@@ -274,196 +163,6 @@ export class CertificateExpiryPanel {
         });
 
         return arrayOfFiles;
-    }
-
-    private async parseCertificate(filePath: string): Promise<{
-        subject: string;
-        type: string;
-        expiryDate: string;
-        issuer: string;
-        validFrom: string;
-        serialNumber: string;
-        fingerprint: string;
-        algorithm: string;
-        format: string;
-    } | null> {
-        try {
-            // Extract file extension for format
-            const fileExt = path.extname(filePath).toLowerCase();
-            const format = fileExt.startsWith('.') ? fileExt.substring(1).toUpperCase() : 'UNKNOWN';
-
-            // First, try to read as text (PEM format)
-            try {
-                const content = fs.readFileSync(filePath, 'utf-8');
-
-                if (content.includes('BEGIN CERTIFICATE')) {
-                    const cert = new crypto.X509Certificate(content);
-                    return {
-                        subject: this.extractCommonName(cert.subject),
-                        type: this.determineCertType(cert),
-                        expiryDate: cert.validTo,
-                        issuer: this.extractCommonName(cert.issuer),
-                        validFrom: cert.validFrom,
-                        serialNumber: cert.serialNumber,
-                        fingerprint: cert.fingerprint,
-                        algorithm: this.extractAlgorithm(cert),
-                        format: format,
-                    };
-                }
-
-                // PKCS#7 PEM format — extract first embedded certificate
-                if (content.includes('BEGIN PKCS7')) {
-                    const certMatch = content.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/);
-                    if (certMatch) {
-                        const cert = new crypto.X509Certificate(certMatch[0]);
-                        return {
-                            subject: this.extractCommonName(cert.subject),
-                            type: this.determineCertType(cert),
-                            expiryDate: cert.validTo,
-                            issuer: this.extractCommonName(cert.issuer),
-                            validFrom: cert.validFrom,
-                            serialNumber: cert.serialNumber,
-                            fingerprint: cert.fingerprint,
-                            algorithm: this.extractAlgorithm(cert),
-                            format: format,
-                        };
-                    }
-                }
-            } catch {
-                // Not a text PEM file — fall through to binary formats
-            }
-
-            // Try binary formats (DER, PKCS#7, PKCS#12)
-            try {
-                const buffer = fs.readFileSync(filePath);
-
-                // PKCS#12 (.pfx, .p12) — Node has no built-in PKCS#12 support, best-effort attempt
-                if (fileExt === '.pfx' || fileExt === '.p12') {
-                    try {
-                        const base64 = buffer.toString('base64');
-                        const pem = `-----BEGIN CERTIFICATE-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
-                        try {
-                            const cert = new crypto.X509Certificate(pem);
-                            return {
-                                subject: this.extractCommonName(cert.subject),
-                                type: this.determineCertType(cert),
-                                expiryDate: cert.validTo,
-                                issuer: this.extractCommonName(cert.issuer),
-                                validFrom: cert.validFrom,
-                                serialNumber: cert.serialNumber,
-                                fingerprint: cert.fingerprint,
-                                algorithm: this.extractAlgorithm(cert),
-                                format: format,
-                            };
-                        } catch {
-                            // File may be password-protected or not a raw DER certificate
-                        }
-                    } catch {
-                        // PKCS#12 parsing failed
-                    }
-                }
-
-                // PKCS#7 binary format (.p7b, .p7c, .p7s)
-                if (fileExt === '.p7b' || fileExt === '.p7c' || fileExt === '.p7s') {
-                    try {
-                        const certBase64 = buffer.toString('base64');
-                        const certPem = `-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
-                        try {
-                            const cert = new crypto.X509Certificate(certPem);
-                            return {
-                                subject: this.extractCommonName(cert.subject),
-                                type: this.determineCertType(cert),
-                                expiryDate: cert.validTo,
-                                issuer: this.extractCommonName(cert.issuer),
-                                validFrom: cert.validFrom,
-                                serialNumber: cert.serialNumber,
-                                fingerprint: cert.fingerprint,
-                                algorithm: this.extractAlgorithm(cert),
-                                format: format,
-                            };
-                        } catch {
-                            // PKCS#7 certificate extraction failed
-                        }
-                    } catch {
-                        // PKCS#7 parsing failed
-                    }
-                }
-
-                // Standard DER format
-                const base64 = buffer.toString('base64');
-                const pem = `-----BEGIN CERTIFICATE-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
-                const cert = new crypto.X509Certificate(pem);
-                return {
-                    subject: this.extractCommonName(cert.subject),
-                    type: this.determineCertType(cert),
-                    expiryDate: cert.validTo,
-                    issuer: this.extractCommonName(cert.issuer),
-                    validFrom: cert.validFrom,
-                    serialNumber: cert.serialNumber,
-                    fingerprint: cert.fingerprint,
-                    algorithm: this.extractAlgorithm(cert),
-                    format: format,
-                };
-            } catch {
-                // DER parsing failed
-            }
-
-            return null;
-        } catch {
-            return null;
-        }
-    }
-
-    private extractCommonName(subject: string): string {
-        const cnMatch = subject.match(/CN=([^,]+)/);
-        return cnMatch ? cnMatch[1] : subject.split('\n')[0] || 'Unknown';
-    }
-
-    private determineCertType(cert: crypto.X509Certificate): string {
-        const subject = cert.subject.toLowerCase();
-        const keyUsage = cert.keyUsage || [];
-
-        if (subject.includes('client') || keyUsage.includes('digitalSignature')) {
-            return 'Client Authentication';
-        } else if (subject.includes('code') || subject.includes('signing')) {
-            return 'Code Signing';
-        } else {
-            return 'TLS/SSL';
-        }
-    }
-
-    private extractAlgorithm(cert: crypto.X509Certificate): string {
-        // Extract signature algorithm from fingerprint or use a default
-        // The fingerprint is in format like "AB:CD:EF:..." and represents SHA256
-        try {
-            // Check if fingerprint exists and extract algorithm name
-            if (cert.fingerprint) {
-                // Most modern certificates use SHA256
-                return 'SHA256';
-            }
-            // If fingerprint256 exists, it's SHA256
-            if (cert.fingerprint256) {
-                return 'SHA256';
-            }
-            // Default fallback
-            return 'RSA-SHA256';
-        } catch (error) {
-            return 'Unknown';
-        }
-    }
-
-    private handleStoreCertificate(id: string, filePath: string) {
-        // Store certificate metadata in workspace state or global state
-        // For now, just acknowledge the storage
-        this._panel.webview.postMessage({
-            command: 'storeResult',
-            id: id,
-            success: true,
-        });
-    }
-
-    private generateId(): string {
-        return Date.now().toString(36) + Math.random().toString(36).slice(2);
     }
 
     public dispose() {
@@ -679,12 +378,6 @@ export class CertificateExpiryPanel {
             border-color: #f44336;
         }
 
-        .badge.stored {
-            background-color: rgba(33, 150, 243, 0.1);
-            color: #2196f3;
-            border-color: #2196f3;
-        }
-
         .badge-icon {
             width: 12px;
             height: 12px;
@@ -830,8 +523,6 @@ export class CertificateExpiryPanel {
             let allCertificates = [];
             let currentTab = 'all';
             let isScanning = false;
-            let expectedFileCount = 0;
-            let processedFileCount = 0;
 
             // Column visibility state
             let columnVisibility = {
@@ -840,17 +531,8 @@ export class CertificateExpiryPanel {
                 validfrom: false
             };
 
-            // Verify elements exist
-            console.log('=== Certificate Expiry Checker Initialized ===');
-            console.log('Browse button exists:', !!document.getElementById('browse-btn'));
-            console.log('Scan button exists:', !!document.getElementById('scan-btn'));
-            console.log('Folder path input exists:', !!document.getElementById('folder-path'));
-            console.log('Folder input exists:', !!document.getElementById('folder-input'));
-            console.log('==========================================');
-
             // Helper function to trigger scan
             function triggerScan() {
-                console.log('Triggering scan...');
                 const folderPath = document.getElementById('folder-path').value.trim();
 
                 if (!folderPath) {
@@ -861,7 +543,6 @@ export class CertificateExpiryPanel {
                 if (isScanning) return;
 
                 // Use backend scanning
-                console.log('Using backend scan for path:', folderPath);
                 isScanning = true;
                 const scanText = document.getElementById('scan-text');
                 const scanBtn = document.getElementById('scan-btn');
@@ -870,8 +551,7 @@ export class CertificateExpiryPanel {
 
                 vscode.postMessage({
                     command: 'scanCertificates',
-                    folderPath,
-                    storeNew: false
+                    folderPath
                 });
             }
 
@@ -925,13 +605,10 @@ export class CertificateExpiryPanel {
 
             if (browseBtn) {
                 browseBtn.addEventListener('click', () => {
-                    console.log('Browse button clicked - requesting folder selection from backend');
                     vscode.postMessage({
                         command: 'openFolder'
                     });
                 });
-            } else {
-                console.error('Browse button not found!');
             }
 
             // Allow Enter key to trigger scan
@@ -947,25 +624,19 @@ export class CertificateExpiryPanel {
             const scanBtn = document.getElementById('scan-btn');
             if (scanBtn) {
                 scanBtn.addEventListener('click', triggerScan);
-            } else {
-                console.error('Scan button not found!');
             }
 
             // Refresh button to rescan the current folder
             const refreshBtn = document.getElementById('refresh-btn');
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => {
-                    console.log('Refresh button clicked');
                     const folderPath = document.getElementById('folder-path').value;
                     if (folderPath) {
-                        console.log('Rescanning folder:', folderPath);
                         vscode.postMessage({
                             command: 'scanCertificates',
-                            folderPath,
-                            storeNew: false
+                            folderPath
                         });
                     } else {
-                        console.log('No folder path set, triggering normal scan');
                         triggerScan();
                     }
                 });
@@ -1115,17 +786,13 @@ export class CertificateExpiryPanel {
             // Message handling
         window.addEventListener('message', event => {
             const message = event.data;
-            console.log('=== Received message from backend ===');
-            console.log('Command:', message.command);
 
             switch (message.command) {
                 case 'folderSelected':
-                    console.log('Folder selected by backend:', message.path);
                     const folderPathInput = document.getElementById('folder-path');
                     folderPathInput.value = message.path;
 
                     // Automatically trigger scan when folder is selected
-                    console.log('Auto-scanning backend-selected folder...');
                     isScanning = true;
                     const scanText = document.getElementById('scan-text');
                     const scanBtn = document.getElementById('scan-btn');
@@ -1134,31 +801,11 @@ export class CertificateExpiryPanel {
 
                     vscode.postMessage({
                         command: 'scanCertificates',
-                        folderPath: message.path,
-                        storeNew: false
+                        folderPath: message.path
                     });
                     break;
 
-                case 'certificateParsed':
-                    // Add the parsed certificate to the list
-                    console.log('Certificate parsed successfully:', message.certificate.name);
-                    console.log('Certificate details:', message.certificate);
-                    allCertificates.push(message.certificate);
-
-                    // Update the UI
-                    document.getElementById('results').classList.add('show');
-                    updateCounts();
-                    renderTable();
-                    break;
-
-                case 'certificateParseError':
-                    console.error('Failed to parse certificate:', message.fileName);
-                    console.error('Error:', message.error);
-                    break;
-
                 case 'scanResult':
-                    console.log('Scan result received from backend');
-                    console.log('Number of certificates:', message.certificates.length);
                     isScanning = false;
                     const scanBtnResult = document.getElementById('scan-btn');
                     const scanTextResult = document.getElementById('scan-text');
@@ -1172,14 +819,12 @@ export class CertificateExpiryPanel {
                     }
 
                     allCertificates = message.certificates;
-                    console.log('Total certificates loaded:', allCertificates.length);
                     document.getElementById('results').classList.add('show');
                     updateCounts();
                     renderTable();
                     break;
 
                 case 'error':
-                    console.error('Error from backend:', message.message);
                     isScanning = false;
                     const scanBtnError = document.getElementById('scan-btn');
                     const scanTextError = document.getElementById('scan-text');
@@ -1187,11 +832,7 @@ export class CertificateExpiryPanel {
                     if (scanBtnError) scanBtnError.disabled = false;
                     alert(message.message);
                     break;
-
-                default:
-                    console.warn('Unknown message command:', message.command);
             }
-            console.log('===================================');
         });
         })();
     </script>

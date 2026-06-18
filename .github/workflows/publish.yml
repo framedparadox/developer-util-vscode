@@ -85,13 +85,13 @@ jobs:
           fi
 
       - name: Package VSIX
-        run: npx vsce package --no-dependencies --out devx.vsix
+        run: npx vsce package --no-dependencies --out certificate-util.vsix
 
       - name: Upload VSIX artefact
         uses: actions/upload-artifact@v4
         with:
-          name: devx.vsix
-          path: devx.vsix
+          name: certificate-util.vsix
+          path: certificate-util.vsix
           retention-days: 30
 
       # Publish to VS Code Marketplace.
@@ -101,7 +101,7 @@ jobs:
         if: ${{ inputs.dry_run != 'true' }}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx vsce publish --no-dependencies --packagePath devx.vsix
+        run: npx vsce publish --no-dependencies --packagePath certificate-util.vsix
 
       # Publish to Open VSX Registry (optional mirror – remove block if not needed).
       # Requires OVSX_PAT secret in GitHub repository settings.
@@ -109,12 +109,12 @@ jobs:
         if: ${{ inputs.dry_run != 'true' }}
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx ovsx publish devx.vsix --pat "$OVSX_PAT"
+        run: npx ovsx publish certificate-util.vsix --pat "$OVSX_PAT"
         continue-on-error: true   # don't fail the whole job if Open VSX is down
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: devx.vsix
+          files: certificate-util.vsix
           generate_release_notes: true

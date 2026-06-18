@@ -1,120 +1,23 @@
 import * as vscode from 'vscode';
-import {
-    AesEncryptDecryptPanel,
-    Base64Panel,
-    CertificateExpiryPanel,
-    CertificatePanel,
-    DataConverterPanel,
-    EscapePanel,
-    FormatterPanel,
-    JWTPanel,
-    MulesoftAesEncryptDecryptPanel,
-    UUIDPanel,
-    VisualizerPanel,
-} from './panels';
-import { DevXToolsProvider, AESSettingsPanel, ConfigSidebarPanel, getGeneralPreferences } from './providers';
+import { CertificateExpiryPanel, CertificatePanel } from './panels';
+import { CertificateToolsProvider } from './providers';
 
 export function activate(context: vscode.ExtensionContext) {
-    // Register the tree view provider for the activity bar
-    const devxToolsProvider = new DevXToolsProvider(context);
-    const sidebarViewProvider = vscode.window.registerWebviewViewProvider('devxToolsView', devxToolsProvider);
+    const certificateToolsProvider = new CertificateToolsProvider(context.extensionUri);
+    const sidebarViewProvider = vscode.window.registerWebviewViewProvider(
+        'certificateUtilToolsView',
+        certificateToolsProvider
+    );
 
-    // Register Mulesoft AES Encrypt / Decrypt command
-    const aesCommand = vscode.commands.registerCommand('devx.aesEncryptDecrypt', () => {
-        MulesoftAesEncryptDecryptPanel.render(context);
-    });
-
-    // Register Generic AES Encrypt / Decrypt command
-    const aesGenericCommand = vscode.commands.registerCommand('devx.aesEncryptDecryptGeneric', () => {
-        AesEncryptDecryptPanel.render(context.extensionUri);
-    });
-
-    // Register Base64 Encode/Decode command
-    const base64Command = vscode.commands.registerCommand('devx.base64Tool', () => {
-        Base64Panel.render(context.extensionUri);
-    });
-
-    // Register JWT Debugger command
-    const jwtCommand = vscode.commands.registerCommand('devx.jwtDebugger', () => {
-        JWTPanel.render(context.extensionUri);
-    });
-
-    // Register UUID Generator command
-    const uuidCommand = vscode.commands.registerCommand('devx.uuidGenerator', () => {
-        UUIDPanel.render(context.extensionUri);
-    });
-
-    // Register Escape/Unescape command
-    const escapeCommand = vscode.commands.registerCommand('devx.escapeTool', () => {
-        EscapePanel.render(context.extensionUri);
-    });
-
-    // Register Data Formatter command
-    const formatterCommand = vscode.commands.registerCommand('devx.formatterTool', () => {
-        FormatterPanel.render(context.extensionUri);
-    });
-
-    // Register Certificate Tools command
-    const certificateCommand = vscode.commands.registerCommand('devx.certificateTool', () => {
+    const certificateCommand = vscode.commands.registerCommand('certificateUtil.openCertificateTools', () => {
         CertificatePanel.render(context.extensionUri);
     });
 
-    // Register Certificate Expiry Checker command
-    const certificateExpiryCommand = vscode.commands.registerCommand('devx.certificateExpiryChecker', () => {
+    const certificateExpiryCommand = vscode.commands.registerCommand('certificateUtil.openExpiryChecker', () => {
         CertificateExpiryPanel.render(context.extensionUri);
     });
 
-    // Register Data Visualizer command (from sidebar)
-    const visualizerCommand = vscode.commands.registerCommand('devx.visualizerTool', () => {
-        VisualizerPanel.render(context.extensionUri);
-    });
-
-    // Register Data Visualizer from file button (⚡ icon)
-    const visualizerFromFileCommand = vscode.commands.registerCommand('devx.visualizerFromFile', () => {
-        VisualizerPanel.renderFromFile(context.extensionUri);
-    });
-
-    // Register Data Converter command
-    const dataConverterCommand = vscode.commands.registerCommand('devx.dataConverter', () => {
-        DataConverterPanel.render(context.extensionUri);
-    });
-
-    // Register AES Settings command
-    const aesSettingsCommand = vscode.commands.registerCommand('devx.aesSettings', () => {
-        AESSettingsPanel.render(context, () => MulesoftAesEncryptDecryptPanel.currentPanel?.refreshKeyIdentifiers());
-    });
-
-    // Register Configure Sidebar command
-    const configureSidebarCommand = vscode.commands.registerCommand('devx.configureSidebar', () => {
-        ConfigSidebarPanel.render(context, () => devxToolsProvider.refresh());
-    });
-
-    // Register refresh command
-    const refreshCommand = vscode.commands.registerCommand('devx.refreshTools', () => {
-        devxToolsProvider.refresh();
-        if (getGeneralPreferences(context).showRefreshMessage) {
-            vscode.window.showInformationMessage('DevX tools refreshed');
-        }
-    });
-
-    context.subscriptions.push(
-        sidebarViewProvider,
-        aesCommand,
-        aesGenericCommand,
-        base64Command,
-        jwtCommand,
-        uuidCommand,
-        escapeCommand,
-        formatterCommand,
-        certificateCommand,
-        certificateExpiryCommand,
-        visualizerCommand,
-        visualizerFromFileCommand,
-        dataConverterCommand,
-        aesSettingsCommand,
-        configureSidebarCommand,
-        refreshCommand
-    );
+    context.subscriptions.push(sidebarViewProvider, certificateCommand, certificateExpiryCommand);
 }
 
 export function deactivate() {}

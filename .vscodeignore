@@ -1,0 +1,11 @@
+.github/**
+.gitignore
+.vscode-test.mjs
+src/**
+out/**
+node_modules/**
+*.vsix
+eslint.config.mjs
+tsconfig.json
+webpack.config.js
+package-lock.json

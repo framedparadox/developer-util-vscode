@@ -43,11 +43,11 @@ jobs:
           run: npm test
 
       - name: Package (dry-run)
-        run: npx vsce package --no-dependencies --out devx.vsix
+        run: npx vsce package --no-dependencies --out certificate-util.vsix
 
       - name: Upload VSIX artefact
         uses: actions/upload-artifact@v4
         with:
-          name: devx-${{ matrix.node-version }}.vsix
-          path: devx.vsix
+          name: certificate-util-${{ matrix.node-version }}.vsix
+          path: certificate-util.vsix
           retention-days: 7

@@ -1,15 +1,12 @@
 # Change Log
 
-All notable changes to the "v1" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+All notable changes to Certificate Utility Tools are documented here.
 
 ## [Unreleased]
 
-- Renamed AES tool to `Mulesoft AES Encrypt / Decrypt` across command and UI labels.
-- Replaced AES `Environment` terminology with `KeyIdentifier` across UI, storage model, and documentation.
-- Refactored project structure:
-  - moved panel implementations under `src/panels/`
-  - moved sidebar provider under `src/providers/`
-  - renamed AES panel file to `src/panels/security/mulesoftAesEncryptDecryptPanel.ts`
-  - added barrel exports in `src/panels/index.ts` and `src/providers/index.ts`
+- Renamed the extension to `certificate-util` / `Certificate Utility Tools`.
+- Removed the previous multi-tool utility surface.
+- Kept only Certificate Tools and Certificate Expiry Checker.
+- Added a minimal certificate-only Activity Bar view.
+- Replaced broad AES, Base64, JWT, UUID, formatter, converter, and visualizer code with focused certificate helper logic and tests.
+- Trimmed dependencies, assets, workflow artifact names, and documentation to match the certificate-only product.

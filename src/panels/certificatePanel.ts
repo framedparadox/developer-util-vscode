@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { getCertificateStatus, normalizePem, parseCertificateContent } from '../certificates/certificateUtils';
 
 export class CertificatePanel {
     public static currentPanel: CertificatePanel | undefined;
@@ -21,7 +22,7 @@ export class CertificatePanel {
                         this.handleDecodeCert(message.cert);
                         return;
                     case 'extractFromJKS':
-                        this.handleExtractFromJKS(message.jksBase64, message.password, message.alias);
+                        this.handleExtractFromJKS(message.keystorePath, message.alias);
                         return;
                     case 'convertToPKCS12':
                         this.handleConvertToPKCS12(message.cert, message.key, message.password);
@@ -54,48 +55,25 @@ export class CertificatePanel {
 
     private handleValidateCert(certPem: string) {
         try {
-            // Clean and validate PEM format
-            const cleanCert = this.cleanPEM(certPem, 'CERTIFICATE');
+            const details = parseCertificateContent(normalizePem(certPem), 'PEM');
+            const validFrom = new Date(details.validFrom);
+            const validTo = new Date(details.validTo);
+            const status = getCertificateStatus(validTo);
+            const isWithinValidityWindow = new Date() >= validFrom && status !== 'expired';
 
-            // Try to create X509 certificate (Node.js 15.6+)
-            const cert = crypto.X509Certificate ? new crypto.X509Certificate(cleanCert) : null;
-
-            if (cert) {
-                const validFrom = new Date(cert.validFrom);
-                const validTo = new Date(cert.validTo);
-                const now = new Date();
-                const isValid = now >= validFrom && now <= validTo;
-
-                this._panel.webview.postMessage({
-                    command: 'validateResult',
-                    result: {
-                        valid: isValid,
-                        subject: cert.subject,
-                        issuer: cert.issuer,
-                        validFrom: validFrom.toISOString(),
-                        validTo: validTo.toISOString(),
-                        serialNumber: cert.serialNumber,
-                        fingerprint: cert.fingerprint,
-                        message: isValid ? 'Certificate is valid' : 'Certificate has expired or is not yet valid',
-                    },
-                });
-            } else {
-                // Fallback: Basic PEM validation
-                const lines = cleanCert.split('\n');
-                const hasHeader = lines[0].includes('BEGIN CERTIFICATE');
-                const hasFooter = lines[lines.length - 1].includes('END CERTIFICATE');
-
-                this._panel.webview.postMessage({
-                    command: 'validateResult',
-                    result: {
-                        valid: hasHeader && hasFooter,
-                        message:
-                            hasHeader && hasFooter
-                                ? 'Certificate format is valid (detailed validation requires Node.js 15.6+)'
-                                : 'Invalid certificate format',
-                    },
-                });
-            }
+            this._panel.webview.postMessage({
+                command: 'validateResult',
+                result: {
+                    valid: isWithinValidityWindow,
+                    subject: details.subject,
+                    issuer: details.issuer,
+                    validFrom: validFrom.toISOString(),
+                    validTo: validTo.toISOString(),
+                    serialNumber: details.serialNumber,
+                    fingerprint: details.fingerprint,
+                    message: isWithinValidityWindow ? 'Certificate is valid' : 'Certificate has expired or is not yet valid',
+                },
+            });
         } catch (error) {
             this._panel.webview.postMessage({
                 command: 'error',
@@ -106,48 +84,12 @@ export class CertificatePanel {
 
     private handleDecodeCert(certPem: string) {
         try {
-            const cleanCert = this.cleanPEM(certPem, 'CERTIFICATE');
+            const details = parseCertificateContent(normalizePem(certPem), 'PEM');
 
-            // Try to decode using X509Certificate
-            const cert = crypto.X509Certificate ? new crypto.X509Certificate(cleanCert) : null;
-
-            if (cert) {
-                const info = {
-                    subject: cert.subject,
-                    issuer: cert.issuer,
-                    validFrom: cert.validFrom,
-                    validTo: cert.validTo,
-                    serialNumber: cert.serialNumber,
-                    fingerprint: cert.fingerprint,
-                    fingerprint256: cert.fingerprint256,
-                    keyUsage: cert.keyUsage || [],
-                    subjectAltName: cert.subjectAltName || 'N/A',
-                    infoAccess: cert.infoAccess || 'N/A',
-                };
-
-                this._panel.webview.postMessage({
-                    command: 'decodeResult',
-                    result: JSON.stringify(info, null, 2),
-                });
-            } else {
-                // Fallback: Show basic info
-                const base64Data = cleanCert
-                    .replace(/-----BEGIN CERTIFICATE-----/, '')
-                    .replace(/-----END CERTIFICATE-----/, '')
-                    .replace(/\s/g, '');
-
-                const info = {
-                    format: 'X.509 Certificate',
-                    size: base64Data.length,
-                    message: 'Detailed decoding requires Node.js 15.6+',
-                    rawBase64: base64Data.substring(0, 100) + '...',
-                };
-
-                this._panel.webview.postMessage({
-                    command: 'decodeResult',
-                    result: JSON.stringify(info, null, 2),
-                });
-            }
+            this._panel.webview.postMessage({
+                command: 'decodeResult',
+                result: JSON.stringify(details, null, 2),
+            });
         } catch (error) {
             this._panel.webview.postMessage({
                 command: 'error',
@@ -156,16 +98,18 @@ export class CertificatePanel {
         }
     }
 
-    private handleExtractFromJKS(jksBase64: string, password: string, alias: string) {
+    private handleExtractFromJKS(keystorePath: string, alias: string) {
         try {
-            // Note: Node.js doesn't natively support JKS format
-            // This would require additional libraries like 'node-forge' or 'jks-js'
+            const pathArg = keystorePath.trim() || 'keystore.jks';
+            const aliasArg = alias.trim() || '<alias>';
+            const exportCommand = `keytool -exportcert -alias ${this.shellQuote(aliasArg)} -keystore ${this.shellQuote(pathArg)} -rfc -file cert.pem`;
+            const convertCommand = `keytool -importkeystore -srckeystore ${this.shellQuote(pathArg)} -destkeystore keystore.p12 -deststoretype PKCS12`;
+
             this._panel.webview.postMessage({
-                command: 'error',
-                message:
-                    'JKS extraction requires additional dependencies. Please use Java keytool:\n\n' +
-                    `keytool -exportcert -alias ${alias} -keystore keystore.jks -rfc -file cert.pem\n` +
-                    `keytool -importkeystore -srckeystore keystore.jks -destkeystore keystore.p12 -deststoretype PKCS12`,
+                command: 'jksResult',
+                result:
+                    'JKS parsing is not built into Node.js. Use Java keytool from a terminal:\n\n' +
+                    `${exportCommand}\n${convertCommand}`,
             });
         } catch (error) {
             this._panel.webview.postMessage({
@@ -177,9 +121,13 @@ export class CertificatePanel {
 
     private handleConvertToPKCS12(certPem: string, keyPem: string, password: string) {
         try {
-            // Note: Creating PKCS12 requires OpenSSL or additional libraries
-            // Provide command-line instructions instead
-            const opensslCmd = `openssl pkcs12 -export -out certificate.p12 -inkey private.key -in certificate.crt -password pass:${password}`;
+            parseCertificateContent(normalizePem(certPem), 'PEM');
+            if (!keyPem.includes('PRIVATE KEY')) {
+                throw new Error('Private key must be PEM text containing a PRIVATE KEY block.');
+            }
+
+            const passwordFlag = password ? ` -password ${this.shellQuote(`pass:${password}`)}` : '';
+            const opensslCmd = `openssl pkcs12 -export -out certificate.p12 -inkey private.key -in certificate.crt${passwordFlag}`;
 
             this._panel.webview.postMessage({
                 command: 'convertResult',
@@ -195,12 +143,8 @@ export class CertificatePanel {
         }
     }
 
-    private cleanPEM(pem: string, type: string): string {
-        pem = pem.trim();
-        if (!pem.includes(`-----BEGIN ${type}-----`)) {
-            pem = `-----BEGIN ${type}-----\n${pem}\n-----END ${type}-----`;
-        }
-        return pem;
+    private shellQuote(value: string): string {
+        return `'${value.replace(/'/g, "'\\''")}'`;
     }
 
     public dispose() {
@@ -434,12 +378,8 @@ export class CertificatePanel {
         </div>
         <div class="section">
             <div class="field-group">
-                <label for="jks-file">JKS File (Base64):</label>
-                <textarea id="jks-file" placeholder="Base64 encoded JKS file content..."></textarea>
-            </div>
-            <div class="field-group">
-                <label for="jks-password">Keystore Password:</label>
-                <input type="password" id="jks-password" placeholder="Enter keystore password">
+                <label for="jks-path">JKS Keystore Path:</label>
+                <input type="text" id="jks-path" placeholder="keystore.jks">
             </div>
             <div class="field-group">
                 <label for="jks-alias">Alias:</label>
@@ -542,20 +482,18 @@ export class CertificatePanel {
 
         // JKS tab
         document.getElementById('extract-btn').addEventListener('click', () => {
-            const jksBase64 = document.getElementById('jks-file').value.trim();
-            const password = document.getElementById('jks-password').value;
+            const keystorePath = document.getElementById('jks-path').value.trim();
             const alias = document.getElementById('jks-alias').value;
 
-            if (!jksBase64 || !password || !alias) {
-                showMessage('jks-message', 'Please fill in all fields', 'error');
+            if (!alias) {
+                showMessage('jks-message', 'Please enter a certificate alias', 'error');
                 return;
             }
-            vscode.postMessage({ command: 'extractFromJKS', jksBase64, password, alias });
+            vscode.postMessage({ command: 'extractFromJKS', keystorePath, alias });
         });
 
         document.getElementById('clear-jks-btn').addEventListener('click', () => {
-            document.getElementById('jks-file').value = '';
-            document.getElementById('jks-password').value = '';
+            document.getElementById('jks-path').value = '';
             document.getElementById('jks-alias').value = '';
             document.getElementById('jks-result').innerHTML = '';
             document.getElementById('jks-message').textContent = '';
@@ -599,6 +537,11 @@ export class CertificatePanel {
                         '<div class="result-box">' + escapeHtml(msg.result) + '</div>';
                     showMessage('convert-message', 'Instructions generated!', 'success');
                     break;
+                case 'jksResult':
+                    document.getElementById('jks-result').innerHTML =
+                        '<div class="result-box">' + escapeHtml(msg.result) + '</div>';
+                    showMessage('jks-message', 'Instructions generated!', 'success');
+                    break;
                 case 'error':
                     const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
                     showMessage(activeTab + '-message', msg.message, 'error');
@@ -611,15 +554,15 @@ export class CertificatePanel {
             const className = result.valid ? 'valid' : 'invalid';
 
             let html = '<div class="result-box ' + className + '">';
-            html += '<strong>Status:</strong> ' + result.message + '\\n\\n';
+            html += '<strong>Status:</strong> ' + escapeHtml(result.message) + '\\n\\n';
 
             if (result.subject) {
-                html += '<strong>Subject:</strong> ' + result.subject + '\\n';
-                html += '<strong>Issuer:</strong> ' + result.issuer + '\\n';
-                html += '<strong>Valid From:</strong> ' + result.validFrom + '\\n';
-                html += '<strong>Valid To:</strong> ' + result.validTo + '\\n';
-                html += '<strong>Serial Number:</strong> ' + result.serialNumber + '\\n';
-                html += '<strong>Fingerprint:</strong> ' + result.fingerprint + '\\n';
+                html += '<strong>Subject:</strong> ' + escapeHtml(result.subject) + '\\n';
+                html += '<strong>Issuer:</strong> ' + escapeHtml(result.issuer) + '\\n';
+                html += '<strong>Valid From:</strong> ' + escapeHtml(result.validFrom) + '\\n';
+                html += '<strong>Valid To:</strong> ' + escapeHtml(result.validTo) + '\\n';
+                html += '<strong>Serial Number:</strong> ' + escapeHtml(result.serialNumber) + '\\n';
+                html += '<strong>Fingerprint:</strong> ' + escapeHtml(result.fingerprint) + '\\n';
             }
 
             html += '</div>';
