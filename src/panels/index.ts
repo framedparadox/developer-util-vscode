@@ -8,4 +8,3 @@ export { FormatterPanel } from './formatterPanel';
 export { JWTPanel } from './jwtPanel';
 export { UUIDPanel } from './uuidPanel';
 export { VisualizerPanel } from './visualizerPanel';
-export { MulesoftAesEncryptDecryptPanel } from './security/mulesoftAesEncryptDecryptPanel';

@@ -6,6 +6,11 @@ export class UUIDPanel {
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
+    // Monotonic state for UUID v1 so values generated within the same
+    // millisecond remain unique and time-ordered.
+    private _v1LastMs = 0n;
+    private _v1Counter = 0n;
+
     private constructor(panel: vscode.WebviewPanel) {
         this._panel = panel;
         this._panel.webview.html = this._getHtmlForWebview(this._panel.webview);
@@ -115,10 +120,25 @@ export class UUIDPanel {
         });
     }
 
-    // UUID v1 implementation
+    // UUID v1 implementation (RFC 4122, section 4.5: random node ID)
     private uuidv1(): string {
-        const now = BigInt(Date.now());
-        const timestamp = now * 10000n + 0x01b21dd213814000n;
+        const nowMs = BigInt(Date.now());
+        // Bump a sub-millisecond counter so multiple UUIDs minted in the same
+        // millisecond stay unique and ordered. Each tick = 100 ns; cap the
+        // counter at the 10000 ticks that fit in one millisecond.
+        if (nowMs > this._v1LastMs) {
+            this._v1LastMs = nowMs;
+            this._v1Counter = 0n;
+        } else {
+            this._v1Counter += 1n;
+            if (this._v1Counter >= 10000n) {
+                // Exhausted this millisecond; advance time to the next one.
+                this._v1LastMs += 1n;
+                this._v1Counter = 0n;
+            }
+        }
+
+        const timestamp = this._v1LastMs * 10000n + this._v1Counter + 0x01b21dd213814000n;
 
         const timeLow = (timestamp & 0xffffffffn).toString(16).padStart(8, '0');
         const timeMid = ((timestamp >> 32n) & 0xffffn).toString(16).padStart(4, '0');
@@ -127,7 +147,10 @@ export class UUIDPanel {
         const clockSeq = crypto.randomBytes(2);
         clockSeq[0] = (clockSeq[0] & 0x3f) | 0x80;
 
+        // Random node ID: set the multicast bit (least-significant bit of the
+        // first octet) to mark it as non-MAC, per RFC 4122.
         const node = crypto.randomBytes(6);
+        node[0] = node[0] | 0x01;
 
         return `${timeLow}-${timeMid}-${timeHi}-${clockSeq.toString('hex')}-${node.toString('hex')}`;
     }
@@ -329,7 +352,7 @@ export class UUIDPanel {
                 <div class="uuid-type-grid">
                     <div class="uuid-card" id="uuid1Card">
                         <h3>UUID v1</h3>
-                        <p>Timestamp-based with MAC address</p>
+                        <p>Timestamp-based with random node ID</p>
                     </div>
                     <div class="uuid-card" id="uuid4Card">
                         <h3>UUID v4</h3>

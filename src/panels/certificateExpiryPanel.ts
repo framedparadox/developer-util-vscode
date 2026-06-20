@@ -840,17 +840,8 @@ export class CertificateExpiryPanel {
                 validfrom: false
             };
 
-            // Verify elements exist
-            console.log('=== Certificate Expiry Checker Initialized ===');
-            console.log('Browse button exists:', !!document.getElementById('browse-btn'));
-            console.log('Scan button exists:', !!document.getElementById('scan-btn'));
-            console.log('Folder path input exists:', !!document.getElementById('folder-path'));
-            console.log('Folder input exists:', !!document.getElementById('folder-input'));
-            console.log('==========================================');
-
             // Helper function to trigger scan
             function triggerScan() {
-                console.log('Triggering scan...');
                 const folderPath = document.getElementById('folder-path').value.trim();
 
                 if (!folderPath) {
@@ -861,7 +852,6 @@ export class CertificateExpiryPanel {
                 if (isScanning) return;
 
                 // Use backend scanning
-                console.log('Using backend scan for path:', folderPath);
                 isScanning = true;
                 const scanText = document.getElementById('scan-text');
                 const scanBtn = document.getElementById('scan-btn');
@@ -925,13 +915,10 @@ export class CertificateExpiryPanel {
 
             if (browseBtn) {
                 browseBtn.addEventListener('click', () => {
-                    console.log('Browse button clicked - requesting folder selection from backend');
                     vscode.postMessage({
                         command: 'openFolder'
                     });
                 });
-            } else {
-                console.error('Browse button not found!');
             }
 
             // Allow Enter key to trigger scan
@@ -947,25 +934,20 @@ export class CertificateExpiryPanel {
             const scanBtn = document.getElementById('scan-btn');
             if (scanBtn) {
                 scanBtn.addEventListener('click', triggerScan);
-            } else {
-                console.error('Scan button not found!');
             }
 
             // Refresh button to rescan the current folder
             const refreshBtn = document.getElementById('refresh-btn');
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => {
-                    console.log('Refresh button clicked');
                     const folderPath = document.getElementById('folder-path').value;
                     if (folderPath) {
-                        console.log('Rescanning folder:', folderPath);
                         vscode.postMessage({
                             command: 'scanCertificates',
                             folderPath,
                             storeNew: false
                         });
                     } else {
-                        console.log('No folder path set, triggering normal scan');
                         triggerScan();
                     }
                 });
@@ -1115,17 +1097,13 @@ export class CertificateExpiryPanel {
             // Message handling
         window.addEventListener('message', event => {
             const message = event.data;
-            console.log('=== Received message from backend ===');
-            console.log('Command:', message.command);
 
             switch (message.command) {
                 case 'folderSelected':
-                    console.log('Folder selected by backend:', message.path);
                     const folderPathInput = document.getElementById('folder-path');
                     folderPathInput.value = message.path;
 
                     // Automatically trigger scan when folder is selected
-                    console.log('Auto-scanning backend-selected folder...');
                     isScanning = true;
                     const scanText = document.getElementById('scan-text');
                     const scanBtn = document.getElementById('scan-btn');
@@ -1141,8 +1119,6 @@ export class CertificateExpiryPanel {
 
                 case 'certificateParsed':
                     // Add the parsed certificate to the list
-                    console.log('Certificate parsed successfully:', message.certificate.name);
-                    console.log('Certificate details:', message.certificate);
                     allCertificates.push(message.certificate);
 
                     // Update the UI
@@ -1152,13 +1128,9 @@ export class CertificateExpiryPanel {
                     break;
 
                 case 'certificateParseError':
-                    console.error('Failed to parse certificate:', message.fileName);
-                    console.error('Error:', message.error);
                     break;
 
                 case 'scanResult':
-                    console.log('Scan result received from backend');
-                    console.log('Number of certificates:', message.certificates.length);
                     isScanning = false;
                     const scanBtnResult = document.getElementById('scan-btn');
                     const scanTextResult = document.getElementById('scan-text');
@@ -1172,14 +1144,12 @@ export class CertificateExpiryPanel {
                     }
 
                     allCertificates = message.certificates;
-                    console.log('Total certificates loaded:', allCertificates.length);
                     document.getElementById('results').classList.add('show');
                     updateCounts();
                     renderTable();
                     break;
 
                 case 'error':
-                    console.error('Error from backend:', message.message);
                     isScanning = false;
                     const scanBtnError = document.getElementById('scan-btn');
                     const scanTextError = document.getElementById('scan-text');
@@ -1187,11 +1157,7 @@ export class CertificateExpiryPanel {
                     if (scanBtnError) scanBtnError.disabled = false;
                     alert(message.message);
                     break;
-
-                default:
-                    console.warn('Unknown message command:', message.command);
             }
-            console.log('===================================');
         });
         })();
     </script>

@@ -166,7 +166,9 @@ export class DataTransformer {
         if (!node.children || node.children.length === 0) {
             return node.metadata.depth;
         }
-        return Math.max(...node.children.map((child) => this.calculateMaxDepth(child)));
+        // Use reduce instead of spreading into Math.max: spreading a large
+        // children array can overflow the call stack on wide trees.
+        return node.children.reduce((max, child) => Math.max(max, this.calculateMaxDepth(child)), node.metadata.depth);
     }
 
     private static buildGraphNode(

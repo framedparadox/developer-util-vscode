@@ -48,8 +48,8 @@ export class JWTPanel {
                 throw new Error('Invalid JWT token format. Expected 3 parts separated by dots.');
             }
 
-            const header = JSON.parse(Buffer.from(parts[0], 'base64').toString('utf8'));
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            const header = JSON.parse(this.decodeSegment(parts[0], 'header'));
+            const payload = JSON.parse(this.decodeSegment(parts[1], 'payload'));
             const signature = parts[2];
 
             // Check expiration
@@ -75,6 +75,14 @@ export class JWTPanel {
                 message: `Decoding error: ${error instanceof Error ? error.message : String(error)}`,
             });
         }
+    }
+
+    private decodeSegment(segment: string, fieldName: string): string {
+        if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
+            throw new Error(`Invalid characters in JWT ${fieldName} segment.`);
+        }
+        // JWT segments are base64url-encoded.
+        return Buffer.from(segment, 'base64url').toString('utf8');
     }
 
     public dispose() {
