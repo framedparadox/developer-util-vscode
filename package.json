@@ -1,13 +1,13 @@
 {
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
-    "description": "Essential developer utilities for MuleSoft and beyond: AES encryption, Base64, JWT, UUID, data formatting, certificate tools, and more.",
-    "version": "0.0.2",
+    "description": "Essential developer utilities for development workflows, including data formatting, conversion, certificate, encoding, and debugging tools.",
+    "version": "0.0.3",
     "publisher": "framedparadox",
     "license": "MIT",
     "icon": "resources/electric.png",
     "keywords": [
-        "mulesoft",
+        "developer",
         "aes",
         "encrypt",
         "decrypt",
@@ -24,12 +24,12 @@
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/framedparadox/mulesoft-util-vscode.git"
+        "url": "https://github.com/framedparadox/developer-util-vscode.git"
     },
     "bugs": {
-        "url": "https://github.com/framedparadox/mulesoft-util-vscode/issues"
+        "url": "https://github.com/framedparadox/developer-util-vscode/issues"
     },
-    "homepage": "https://github.com/framedparadox/mulesoft-util-vscode#readme",
+    "homepage": "https://github.com/framedparadox/developer-util-vscode#readme",
     "engines": {
         "vscode": "^1.105.0"
     },
@@ -60,14 +60,6 @@
             ]
         },
         "commands": [
-            {
-                "command": "devx.aesEncryptDecrypt",
-                "title": "Mulesoft AES Encrypt / Decrypt",
-                "icon": {
-                    "light": "resources/aes.png",
-                    "dark": "resources/aes.png"
-                }
-            },
             {
                 "command": "devx.aesEncryptDecryptGeneric",
                 "title": "AES Encrypt / Decrypt",
@@ -142,11 +134,6 @@
                 "icon": "$(sync)"
             },
             {
-                "command": "devx.aesSettings",
-                "title": "AES Settings",
-                "icon": "$(key)"
-            },
-            {
                 "command": "devx.configureSidebar",
                 "title": "Configure Sidebar",
                 "icon": "$(gear)"
@@ -159,11 +146,6 @@
         ],
         "menus": {
             "editor/title": [
-                {
-                    "command": "devx.aesEncryptDecrypt",
-                    "when": "resourceLangId == yaml || resourceExtname == .properties",
-                    "group": "navigation"
-                },
                 {
                     "command": "devx.visualizerFromFile",
                     "when": "resourceLangId == json || resourceLangId == yaml || resourceLangId == xml || resourceExtname == .csv || resourceExtname == .raml",

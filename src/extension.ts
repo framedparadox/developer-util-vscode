@@ -8,21 +8,15 @@ import {
     EscapePanel,
     FormatterPanel,
     JWTPanel,
-    MulesoftAesEncryptDecryptPanel,
     UUIDPanel,
     VisualizerPanel,
 } from './panels';
-import { DevXToolsProvider, AESSettingsPanel, ConfigSidebarPanel, getGeneralPreferences } from './providers';
+import { DevXToolsProvider, ConfigSidebarPanel, getGeneralPreferences } from './providers';
 
 export function activate(context: vscode.ExtensionContext) {
     // Register the tree view provider for the activity bar
     const devxToolsProvider = new DevXToolsProvider(context);
     const sidebarViewProvider = vscode.window.registerWebviewViewProvider('devxToolsView', devxToolsProvider);
-
-    // Register Mulesoft AES Encrypt / Decrypt command
-    const aesCommand = vscode.commands.registerCommand('devx.aesEncryptDecrypt', () => {
-        MulesoftAesEncryptDecryptPanel.render(context);
-    });
 
     // Register Generic AES Encrypt / Decrypt command
     const aesGenericCommand = vscode.commands.registerCommand('devx.aesEncryptDecryptGeneric', () => {
@@ -79,11 +73,6 @@ export function activate(context: vscode.ExtensionContext) {
         DataConverterPanel.render(context.extensionUri);
     });
 
-    // Register AES Settings command
-    const aesSettingsCommand = vscode.commands.registerCommand('devx.aesSettings', () => {
-        AESSettingsPanel.render(context, () => MulesoftAesEncryptDecryptPanel.currentPanel?.refreshKeyIdentifiers());
-    });
-
     // Register Configure Sidebar command
     const configureSidebarCommand = vscode.commands.registerCommand('devx.configureSidebar', () => {
         ConfigSidebarPanel.render(context, () => devxToolsProvider.refresh());
@@ -99,7 +88,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         sidebarViewProvider,
-        aesCommand,
         aesGenericCommand,
         base64Command,
         jwtCommand,
@@ -111,7 +99,6 @@ export function activate(context: vscode.ExtensionContext) {
         visualizerCommand,
         visualizerFromFileCommand,
         dataConverterCommand,
-        aesSettingsCommand,
         configureSidebarCommand,
         refreshCommand
     );

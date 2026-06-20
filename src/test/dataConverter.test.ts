@@ -349,14 +349,22 @@ suite('DataConverter – edge cases', () => {
         assert.strictEqual(parsed.key, null);
     });
 
-    test('empty objects in values are stripped by normalizeData', () => {
-        // normalizeData skips empty objects
+    test('empty objects in values are preserved by normalizeData', () => {
+        // Conversions must stay faithful to the source: an empty object is a
+        // valid value and must not be dropped.
         const result = converter.convert('{"a":{},"b":"hello"}', 'json', 'json');
         assert.ok(result.success);
         const parsed = JSON.parse(result.output!);
-        // 'a' is an empty object and should be stripped
-        assert.strictEqual(parsed.a, undefined);
+        assert.deepStrictEqual(parsed.a, {});
         assert.strictEqual(parsed.b, 'hello');
+    });
+
+    test('nested empty objects are preserved by normalizeData', () => {
+        const result = converter.convert('{"meta":{"settings":{}},"name":"svc"}', 'json', 'json');
+        assert.ok(result.success);
+        const parsed = JSON.parse(result.output!);
+        assert.deepStrictEqual(parsed.meta, { settings: {} });
+        assert.strictEqual(parsed.name, 'svc');
     });
 
     test('XML tag sanitization replaces invalid characters with underscore', () => {

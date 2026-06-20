@@ -1,5 +1,6 @@
 import { ConversionFormat, OutputFormat, ConversionResult, DataConverter as IDataConverter } from '../visualizer/types';
 import { JSONParser, YAMLParser, XMLParserImpl, CSVParser, RAMLParser } from '../visualizer/parsers';
+import { detectDataFormat } from '../visualizer/format';
 import * as yaml from 'js-yaml';
 
 /**
@@ -110,13 +111,11 @@ export class DataConverter implements IDataConverter {
             for (const key of Object.keys(data)) {
                 const value = data[key];
 
-                // Skip empty objects and null values if desired
                 if (value === null || value === undefined) {
                     normalized[key] = value;
-                } else if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
-                    // Skip empty objects
-                    continue;
                 } else {
+                    // Preserve all values, including empty objects/arrays, so
+                    // conversions stay faithful to the source document.
                     normalized[key] = this.normalizeData(value);
                 }
             }
@@ -237,56 +236,11 @@ export class DataConverter implements IDataConverter {
     }
 
     /**
-     * Detect format from file extension or content
+     * Detect format from file extension or, failing that, content.
+     * Delegates to the shared {@link detectDataFormat} heuristic so format
+     * detection stays consistent with the visualizer.
      */
     static detectFormat(fileName: string, content?: string): ConversionFormat | null {
-        const ext = fileName.split('.').pop()?.toLowerCase();
-
-        switch (ext) {
-            case 'json':
-                return 'json';
-            case 'yaml':
-            case 'yml':
-                return 'yaml';
-            case 'xml':
-                return 'xml';
-            case 'csv':
-                return 'csv';
-            case 'raml':
-                return 'raml';
-            default:
-                // Try to detect from content if provided
-                if (content) {
-                    const trimmed = content.trim();
-                    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-                        return 'json';
-                    }
-                    if (trimmed.startsWith('<?xml') || trimmed.startsWith('<')) {
-                        return 'xml';
-                    }
-                    if (trimmed.startsWith('#%RAML')) {
-                        return 'raml';
-                    }
-                    // CSV heuristic: at least two non-empty lines with consistent comma-separated fields
-                    const lines = trimmed
-                        .split(/\r?\n/)
-                        .map((l) => l.trim())
-                        .filter((l) => l.length > 0);
-                    if (lines.length >= 2 && lines[0].includes(',') && lines[1].includes(',')) {
-                        const c0 = lines[0].split(',').length;
-                        const c1 = lines[1].split(',').length;
-                        if (c0 > 1 && c0 === c1 && !/:\s*/.test(lines[0])) {
-                            return 'csv';
-                        }
-                    }
-                    // YAML heuristic: key-value pairs like "name: value"
-                    // (kept after JSON/XML/RAML/CSV checks to reduce false positives)
-                    const firstNonEmpty = lines[0] ?? '';
-                    if (/^[-\s]*[A-Za-z0-9_"'.][A-Za-z0-9_"'.-]*\s*:\s*\S+/.test(firstNonEmpty)) {
-                        return 'yaml';
-                    }
-                }
-                return null;
-        }
+        return detectDataFormat(content ?? '', fileName);
     }
 }

@@ -1,24 +1,14 @@
-# MuleSoft Developer Utility Tools
+# Developer Utility Tools
 
-A VS Code extension providing essential tools for MuleSoft developers, including secure property encryption/decryption, data formatting, certificate management, and various encoding/decoding utilities.
+A VS Code extension providing essential tools for developers, including data formatting, certificate management, and various encoding/decoding utilities.
 
 ## Features
 
-### 🔒 Mulesoft AES Encrypt / Decrypt Tool
-
-Encrypt and decrypt sensitive configuration properties using AES encryption, fully compatible with MuleSoft's secure properties format.
-
-- **MuleSoft Compatible**: Uses AES/CBC/PKCS5 encryption with output in `![base64]` format
-- **Quick Access**: Button appears in editor toolbar when working with YAML or `.properties` files
-- **KeyIdentifier Presets**: Built-in encryption keys for DEV, FIT, UAT, and PROD KeyIdentifiers
-- **Secure Key Management**: Toggle visibility to show/hide encryption keys with partial masking
-- **Copy to Clipboard**: One-click copy of encrypted values
-
 ### 🔐 AES Encrypt / Decrypt (Generic)
 
-Encrypt and decrypt content using configurable AES settings in a separate tool (independent from MuleSoft secure-properties mode).
+Encrypt and decrypt content using configurable AES settings.
 
-- **Separate Tool**: Uses command `devx.aesEncryptDecryptGeneric` and appears separately in the DevX sidebar
+- **Enabled by Default**: Uses command `devx.aesEncryptDecryptGeneric` and appears in the DevX sidebar by default
 - **Input Sources**: Text, File, and URL (`http`/`https`) input supported
 - **Details Panel UX**: `Details` is collapsed by default; use the dropdown button on the right to expand/collapse options
 - **Cipher Options**:
@@ -93,27 +83,6 @@ Comprehensive certificate management utilities.
 - **JKS Extraction**: Instructions for extracting certificates from Java KeyStore
 - **PKCS12 Conversion**: Generate OpenSSL commands to convert certificates to PKCS12 format
 
-### 📊 Status / Healthcheck
-
-Monitor the health and availability of your services with customizable endpoint checks.
-
-- **Service Cards**: Visual cards with logos for MuleSoft, Salesforce, Jenkins, Confluent, Jira, Confluence, and more
-- **Configurable Endpoints**: Add custom HTTP/HTTPS endpoints with method, headers, and certificates
-- **Client Certificate Support**: Provide client certificates and private keys for secure connections
-- **Real-time Monitoring**: Check individual services or refresh all with one click
-- **Response Time Tracking**: See how long each service takes to respond
-- **Visual Status Indicators**: Green (success), red (error), yellow (loading) color-coded cards
-- **Custom Headers**: Add authorization tokens or custom headers for authenticated endpoints
-- **Easy Management**: Add or remove services dynamically
-
-#### Pre-configured Services:
-- MuleSoft Anypoint
-- Salesforce
-- Jenkins
-- Confluent
-- Jira
-- Confluence
-
 ### 🎯 Activity Bar Integration
 
 Access all Utility tools from the dedicated activity bar icon for quick navigation.
@@ -128,21 +97,6 @@ Access all Utility tools from the dedicated activity bar icon for quick navigati
 This extension does not currently add any VS Code settings. Configuration is done through the UI panels.
 
 ## Encryption Details
-
-### MuleSoft Secure Properties Mode (`devx.aesEncryptDecrypt`)
-
-The MuleSoft tool uses the following format:
-
-- **Algorithm**: AES-128-CBC or AES-256-CBC (based on key length)
-- **IV (Initialization Vector)**: Derived from first 16 characters of the encryption key
-- **Output Format**: `![base64EncodedString]`
-- **Key Requirements**: Minimum 16 characters (32 characters recommended for AES-256)
-
-### Example
-
-**Plain Text**: `mySecretPassword123`
-
-**Encrypted** (with DEV key): `![YWJjZGVmZ2hpamtsbW5vcA==]`
 
 ### Generic AES Mode (`devx.aesEncryptDecryptGeneric`)
 
@@ -175,9 +129,8 @@ None at this time. Please report issues on the [GitHub repository](https://githu
 
 ### 0.0.1
 
-Initial release of Mulesoft Utility Tools with the following features:
+Initial release of Developer Utility Tools with the following features:
 
-- Mulesoft AES Encrypt / Decrypt tool with MuleSoft compatibility
 - Base64 Encode/Decode with file upload support
 - JWT Debugger with token validation
 - UUID Generator (v1, v4, v7, Null) with bulk generation
@@ -185,23 +138,15 @@ Initial release of Mulesoft Utility Tools with the following features:
 - Data Formatter for XML, JSON, and SQL
 - Certificate Tools for validation, decoding, and conversion
 - Status / Healthcheck for monitoring service availability
-- KeyIdentifier preset keys (DEV, FIT, UAT, PROD)
 - Activity bar integration
-- Secure key visibility toggle with partial masking
 - Copy to clipboard functionality across all tools
 
 ---
 
-## For MuleSoft Developers
+## For Developers
 
-This extension is designed to streamline your MuleSoft development workflow by providing quick access to encryption tools directly within VS Code. No need to switch to external tools or web interfaces.
-
-### Supported File Types
-
-The encryption button automatically appears when editing:
-- `.yaml` files
-- `.properties` files
+This extension is designed to streamline development workflows with data formatting, conversion, certificate, encoding, and debugging tools directly within VS Code.
 
 ---
 
-**Enjoy secure MuleSoft development!**
+**Enjoy development!**

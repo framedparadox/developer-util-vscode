@@ -55,8 +55,8 @@ function uuidVersion(uuid: string): number {
 
 function uuidVariant(uuid: string): string {
     const variantChar = parseInt(uuid[19], 16);
-    if ((variantChar & 0b1100) === 0b1000) return 'RFC4122';
-    if ((variantChar & 0b1100) === 0b1100) return 'Microsoft';
+    if ((variantChar & 0b1100) === 0b1000) {return 'RFC4122';}
+    if ((variantChar & 0b1100) === 0b1100) {return 'Microsoft';}
     return 'NCS';
 }
 
