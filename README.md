@@ -1,6 +1,6 @@
 # Certificate Utility Tools
 
-Certificate Utility Tools is a focused VS Code extension for inspecting X.509 certificates without leaving the editor. It provides a compact Activity Bar view plus Command Palette commands for certificate validation, decoding, conversion instructions, and expiration scanning.
+Certificate Utility Tools is a VS Code extension for inspecting certificate artifacts without leaving the editor. It provides a compact Activity Bar launcher plus a certificate workbench for local files, pasted bundles, active editor content, PKCS bundles, remote TLS endpoints, and keystore command workflows, alongside the existing expiry scanner.
 
 ## Features
 
@@ -8,10 +8,17 @@ Certificate Utility Tools is a focused VS Code extension for inspecting X.509 ce
 
 Open `Certificate Utility: Certificate Tools` from the Command Palette or the Certificates Activity Bar view.
 
-- Validate PEM certificates and show whether they are currently valid.
-- Decode X.509 certificate metadata including subject, issuer, validity dates, serial number, fingerprints, key usage, subject alternative names, and authority information.
-- Generate Java `keytool` commands for exporting certificates from a JKS keystore.
-- Generate OpenSSL command instructions for creating a PKCS#12 bundle from a certificate and private key.
+- Inspect pasted PEM content, active editor files, or explicit certificate files.
+- Classify X.509 certificates, certificate bundles, CSRs, private keys, PKCS#7 files, PKCS#12 files, and JKS keystores.
+- Decode structured certificate details including subject, issuer, SANs, fingerprints, signature algorithm, public key metadata, extended key usage hints, and authority information.
+- Validate validity windows, hostname matching, self-signed status, CA vs leaf usage, and optional trust verification through OpenSSL.
+- Analyze certificate chains and highlight likely leaf, intermediate, and root entries, duplicate serials, and missing issuers.
+- Save the current certificate as PEM or DER.
+- Inspect PKCS#7 and PKCS#12 bundles when OpenSSL is available.
+- Generate Java `keytool` commands for JKS alias export and JKS to PKCS#12 conversion.
+- Generate OpenSSL command instructions for PKCS#12 export from a certificate and private key.
+- Fetch and inspect remote TLS certificate chains using OpenSSL `s_client` when available.
+- Open the `Info` button at the bottom of each tool section to view inline usage guidance, then click it again to collapse the details.
 
 ### Certificate Expiry Checker
 
@@ -35,18 +42,36 @@ The expiry scanner parses certificate files that Node.js can read as X.509 certi
 - `.ca`
 - `.bundle`
 
-JKS, PKCS#12, PKCS#7, CSR, and private key files are not parsed directly by the extension. The Certificate Tools panel provides command-line instructions for JKS export and PKCS#12 creation instead.
+The certificate tools workbench also classifies and guides workflows for:
+
+- `.p12`
+- `.pfx`
+- `.p7b`
+- `.p7c`
+- `.p7s`
+- `.csr`
+- `.key`
+- `.jks`
 
 ## Commands
 
 - `certificateUtil.openCertificateTools`: Certificate Tools
+- `certificateUtil.inspectActiveCertificate`: Inspect Active Certificate
+- `certificateUtil.inspectCertificateFile`: Inspect Certificate File
+- `certificateUtil.inspectRemoteCertificate`: Inspect Remote Certificate
+- `certificateUtil.openInspectTool`: Open Inspect Tool
+- `certificateUtil.openValidateTool`: Open Validate Tool
+- `certificateUtil.openChainTool`: Open Chain Tool
+- `certificateUtil.openConvertTool`: Open Convert Tool
+- `certificateUtil.openKeystoreTool`: Open Keystore Tool
+- `certificateUtil.openRemoteTool`: Open Remote Tool
 - `certificateUtil.openExpiryChecker`: Certificate Expiry Checker
 
 ## Requirements
 
 - VS Code 1.105.0 or newer.
-- Java `keytool` is required only when you run generated JKS commands.
-- OpenSSL is required only when you run generated PKCS#12 commands.
+- Java `keytool` is required only when you list JKS aliases or run a generated JKS command.
+- OpenSSL is required only for external-tool workflows such as PKCS#7 or PKCS#12 inspection, trust verification, and remote TLS inspection.
 
 ## Development
 

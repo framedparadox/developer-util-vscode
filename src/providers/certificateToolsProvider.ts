@@ -11,7 +11,7 @@ interface CertificateToolItem {
 const CERTIFICATE_TOOLS: CertificateToolItem[] = [
     {
         label: 'Certificate Tools',
-        description: 'Validate, decode, and generate JKS or PKCS#12 instructions',
+        description: 'Inspect, validate, analyze, convert, and inspect remote certificates',
         command: 'certificateUtil.openCertificateTools',
         icon: 'certificate.svg',
     },

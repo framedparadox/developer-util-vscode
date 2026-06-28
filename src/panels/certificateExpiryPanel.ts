@@ -5,13 +5,14 @@ import * as crypto from 'crypto';
 import {
     SUPPORTED_CERTIFICATE_EXTENSIONS,
     ScannedCertificate,
-    scanCertificateFile,
+    scanCertificateContent,
 } from '../certificates/certificateUtils';
 
 export class CertificateExpiryPanel {
     public static currentPanel: CertificateExpiryPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
+    private scanGeneration = 0;
 
     private constructor(panel: vscode.WebviewPanel) {
         this._panel = panel;
@@ -22,10 +23,10 @@ export class CertificateExpiryPanel {
             (message) => {
                 switch (message.command) {
                     case 'openFolder':
-                        this.handleOpenFolder();
+                        void this.handleOpenFolder();
                         return;
                     case 'scanCertificates':
-                        this.handleScanCertificates(message.folderPath);
+                        void this.handleScanCertificates(message.folderPath);
                         return;
                 }
             },
@@ -85,6 +86,7 @@ export class CertificateExpiryPanel {
     }
 
     private async handleScanCertificates(folderPath: string) {
+        const generation = ++this.scanGeneration;
         try {
             if (!folderPath || folderPath.trim() === '') {
                 this._panel.webview.postMessage({
@@ -94,15 +96,11 @@ export class CertificateExpiryPanel {
                 return;
             }
 
-            if (!fs.existsSync(folderPath)) {
-                this._panel.webview.postMessage({
-                    command: 'error',
-                    message: `Folder not found: ${folderPath}`,
-                });
+            const normalizedFolderPath = folderPath.trim();
+            const stat = await fs.promises.stat(normalizedFolderPath);
+            if (generation !== this.scanGeneration) {
                 return;
             }
-
-            const stat = fs.statSync(folderPath);
             if (!stat.isDirectory()) {
                 this._panel.webview.postMessage({
                     command: 'error',
@@ -112,23 +110,32 @@ export class CertificateExpiryPanel {
             }
 
             const certificates: ScannedCertificate[] = [];
-            const files = this.getAllFiles(folderPath);
+            const files = await this.getAllFiles(normalizedFolderPath);
+            if (generation !== this.scanGeneration) {
+                return;
+            }
 
             for (const file of files) {
+                if (generation !== this.scanGeneration) {
+                    return;
+                }
                 const ext = path.extname(file).toLowerCase();
                 if (SUPPORTED_CERTIFICATE_EXTENSIONS.includes(ext)) {
                     try {
-                        certificates.push(scanCertificateFile(file));
+                        certificates.push(scanCertificateContent(file, await fs.promises.readFile(file)));
                     } catch {
                         // Skip files that can't be parsed
                     }
                 }
             }
 
+            if (generation !== this.scanGeneration) {
+                return;
+            }
             if (certificates.length === 0) {
                 this._panel.webview.postMessage({
                     command: 'error',
-                    message: `No valid certificates found in ${folderPath}. Supported formats: ${SUPPORTED_CERTIFICATE_EXTENSIONS.join(', ')}`,
+                    message: `No valid certificates found in ${normalizedFolderPath}. Supported formats: ${SUPPORTED_CERTIFICATE_EXTENSIONS.join(', ')}`,
                 });
                 return;
             }
@@ -138,6 +145,9 @@ export class CertificateExpiryPanel {
                 certificates: certificates,
             });
         } catch (error) {
+            if (generation !== this.scanGeneration) {
+                return;
+            }
             this._panel.webview.postMessage({
                 command: 'error',
                 message: `Failed to scan folder: ${error instanceof Error ? error.message : String(error)}`,
@@ -145,24 +155,29 @@ export class CertificateExpiryPanel {
         }
     }
 
-    private getAllFiles(dirPath: string, arrayOfFiles: string[] = [], depth: number = 0): string[] {
+    private async getAllFiles(dirPath: string, depth: number = 0): Promise<string[]> {
         if (depth > 10) {
-            return arrayOfFiles;
+            return [];
         }
 
-        const files = fs.readdirSync(dirPath);
+        let entries: fs.Dirent[];
+        try {
+            entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+        } catch {
+            return [];
+        }
 
-        files.forEach((file) => {
-            const filePath = path.join(dirPath, file);
-            const stat = fs.lstatSync(filePath);
-            if (stat.isDirectory() && !stat.isSymbolicLink()) {
-                arrayOfFiles = this.getAllFiles(filePath, arrayOfFiles, depth + 1);
-            } else if (stat.isFile()) {
-                arrayOfFiles.push(filePath);
+        const files: string[] = [];
+        for (const entry of entries) {
+            const filePath = path.join(dirPath, entry.name);
+            if (entry.isDirectory() && !entry.isSymbolicLink()) {
+                files.push(...(await this.getAllFiles(filePath, depth + 1)));
+            } else if (entry.isFile()) {
+                files.push(filePath);
             }
-        });
+        }
 
-        return arrayOfFiles;
+        return files;
     }
 
     public dispose() {
@@ -629,17 +644,7 @@ export class CertificateExpiryPanel {
             // Refresh button to rescan the current folder
             const refreshBtn = document.getElementById('refresh-btn');
             if (refreshBtn) {
-                refreshBtn.addEventListener('click', () => {
-                    const folderPath = document.getElementById('folder-path').value;
-                    if (folderPath) {
-                        vscode.postMessage({
-                            command: 'scanCertificates',
-                            folderPath
-                        });
-                    } else {
-                        triggerScan();
-                    }
-                });
+                refreshBtn.addEventListener('click', triggerScan);
             }
 
             // Column toggle buttons

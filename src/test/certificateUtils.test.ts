@@ -4,33 +4,65 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
+    analyzeCertificateChain,
+    extractPemBlocks,
     getCertificateStatus,
     normalizePem,
     parseCertificateContent,
     parseCertificateFile,
+    parseCertificateInputFromFile,
+    parseCertificateInputFromText,
+    scanCertificateContent,
     scanCertificateFile,
+    validateArtifact,
 } from '../certificates/certificateUtils';
+import {
+    buildDerToPemCommand,
+    buildJksExportCommand,
+    buildJksToPkcs12Command,
+    buildPemToDerCommand,
+    buildPkcs12ExportCommand,
+    normalizeRemoteTarget,
+    parsePkcsCertificateOutput,
+    parseRemoteInspectionOutput,
+} from '../certificates/externalTools';
 
 const TEST_CERT_PEM = `-----BEGIN CERTIFICATE-----
-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
+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
+I7Y=
 -----END CERTIFICATE-----`;
+
+const TEST_CSR_PEM = `-----BEGIN CERTIFICATE REQUEST-----
+MIIBVTCBvwIBADAcMRowGAYDVQQDDBFjc3IuZXhhbXBsZS50ZXN0MIGfMA0GCSqG
+SIb3DQEBAQUAA4GNADCBiQKBgQC2X2MS98m18m5GsLzJ7I0r8n07akQyycGldAZR
+2g9BIKmj6r6SJ4Prmb6vKJ40PAA7Fo/U1m8vnB7kdLqUs0RrXmKh6rPFY1Q1yDX2
+11O79z8aJmxdOQ2Y+zbofbLTgN0mFM7P+IYIcJtJQ3A5SlQ0j3QanPEYzXw2Thfx
+5V76LwIDAQABoAAwDQYJKoZIhvcNAQELBQADgYEAKe6E8r5vB8ZBeuZ54r/5iUw7
+uLwSJDRPQ4V8FAxE8/6yeeqv14IyqXhS3CxKQ0QjxQjeUn1l1eBv9M3gVsER+v7l
+8Q9FF7q7Z+vA2qv1QnCHMw46FnmKYrtkM6d4qsTM+qE11wX8f0a2J3HcN0EuL4O3
+9QjRk+W8s2nLFBvTO0U=
+-----END CERTIFICATE REQUEST-----`;
+
+const TEST_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDq
+-----END PRIVATE KEY-----`;
 
 suite('certificateUtils', () => {
     test('normalizes bare certificate base64 into PEM', () => {
@@ -46,30 +78,76 @@ suite('certificateUtils', () => {
         assert.strictEqual(normalizePem(`\n${TEST_CERT_PEM}\n`), TEST_CERT_PEM);
     });
 
-    test('decodes a PEM X.509 certificate', () => {
-        const details = parseCertificateContent(TEST_CERT_PEM, 'PEM');
+    test('extracts PEM blocks from bundle text', () => {
+        const bundle = `${TEST_CERT_PEM}\n${TEST_CSR_PEM}`;
+        const blocks = extractPemBlocks(bundle);
+        assert.strictEqual(blocks.length, 2);
+    });
 
-        assert.strictEqual(details.subjectCommonName, 'Certificate Utility Test');
-        assert.strictEqual(details.issuerCommonName, 'Certificate Utility Test');
+    test('decodes PEM and captures structured certificate fields', () => {
+        const details = parseCertificateContent(TEST_CERT_PEM, 'PEM');
+        assert.strictEqual(details.subjectCommonName, 'example.com');
+        assert.strictEqual(details.issuerCommonName, 'example.com');
         assert.strictEqual(details.format, 'PEM');
-        assert.ok(details.serialNumber.length > 0);
+        assert.strictEqual(details.algorithm, 'RSA');
         assert.ok(details.fingerprint.includes(':'));
+        assert.ok(details.subjectAltName.includes('DNS:example.com'));
+
+        const artifact = parseCertificateInputFromText(TEST_CERT_PEM, {
+            kind: 'pasted',
+            label: 'sans',
+        });
+        assert.deepStrictEqual(artifact.certificates[0]?.subjectAltNames, [
+            'DNS:example.com',
+            'DNS:localhost',
+            'IP Address:127.0.0.1',
+        ]);
     });
 
     test('parses DER certificate content', () => {
         const der = new crypto.X509Certificate(TEST_CERT_PEM).raw;
         const details = parseCertificateContent(der, 'DER');
 
-        assert.strictEqual(details.subjectCommonName, 'Certificate Utility Test');
+        assert.strictEqual(details.subjectCommonName, 'example.com');
         assert.strictEqual(details.format, 'DER');
     });
 
-    test('classifies expiry status relative to a reference date', () => {
-        const reference = new Date('2026-06-17T00:00:00Z');
+    test('classifies PEM bundles, CSR, and private keys', () => {
+        const chainArtifact = parseCertificateInputFromText(`${TEST_CERT_PEM}\n${TEST_CERT_PEM}`, {
+            kind: 'pasted',
+            label: 'bundle',
+        });
+        const csrArtifact = parseCertificateInputFromText(TEST_CSR_PEM, {
+            kind: 'pasted',
+            label: 'csr',
+        });
+        const keyArtifact = parseCertificateInputFromText(TEST_PRIVATE_KEY_PEM, {
+            kind: 'pasted',
+            label: 'key',
+        });
 
-        assert.strictEqual(getCertificateStatus('2026-06-16T00:00:00Z', reference), 'expired');
-        assert.strictEqual(getCertificateStatus('2026-07-01T00:00:00Z', reference), 'expiring');
-        assert.strictEqual(getCertificateStatus('2026-08-01T00:00:00Z', reference), 'valid');
+        assert.strictEqual(chainArtifact.kind, 'cert-chain');
+        assert.strictEqual(chainArtifact.certificates.length, 2);
+        assert.strictEqual(csrArtifact.kind, 'csr');
+        assert.strictEqual(keyArtifact.kind, 'private-key');
+        assert.strictEqual(csrArtifact.encoding, 'PEM');
+    });
+
+    test('detects pasted PEM and bare certificate base64 as X.509 input', () => {
+        const pemArtifact = parseCertificateInputFromText(TEST_CERT_PEM, {
+            kind: 'pasted',
+            label: 'pem',
+        });
+        const bareBase64 = TEST_CERT_PEM.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+        const base64Artifact = parseCertificateInputFromText(bareBase64, {
+            kind: 'pasted',
+            label: 'base64',
+        });
+
+        assert.strictEqual(pemArtifact.encoding, 'PEM');
+        assert.strictEqual(base64Artifact.kind, 'x509-cert');
+        assert.strictEqual(base64Artifact.encoding, 'PEM');
+        assert.strictEqual(base64Artifact.certificates[0]?.subjectCommonName, 'example.com');
     });
 
     test('parses and scans a PEM certificate file', () => {
@@ -80,23 +158,119 @@ suite('certificateUtils', () => {
         const details = parseCertificateFile(certPath);
         const scanned = scanCertificateFile(certPath);
 
-        assert.strictEqual(details.subjectCommonName, 'Certificate Utility Test');
-        assert.strictEqual(scanned.owner, 'Certificate Utility Test');
+        assert.strictEqual(details.subjectCommonName, 'example.com');
+        assert.strictEqual(scanned.owner, 'example.com');
         assert.strictEqual(scanned.format, 'CRT');
+        assert.strictEqual(scanCertificateContent(certPath, TEST_CERT_PEM).owner, 'example.com');
+    });
+
+    test('parses DER certificate files with an unknown extension', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cert-util-der-'));
+        const certPath = path.join(tempDir, 'server.bin');
+        fs.writeFileSync(certPath, new crypto.X509Certificate(TEST_CERT_PEM).raw);
+
+        const artifact = parseCertificateInputFromFile(certPath);
+
+        assert.strictEqual(artifact.kind, 'x509-cert');
+        assert.strictEqual(artifact.encoding, 'DER');
+        assert.strictEqual(artifact.certificates[0]?.format, 'DER');
+    });
+
+    test('classifies PKCS#12, PKCS#7, and JKS files without parsing them as X.509 directly', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cert-util-classify-'));
+        const p12Path = path.join(tempDir, 'bundle.p12');
+        const p7bPath = path.join(tempDir, 'bundle.p7b');
+        const jksPath = path.join(tempDir, 'keystore.jks');
+        fs.writeFileSync(p12Path, 'placeholder');
+        fs.writeFileSync(p7bPath, 'placeholder');
+        fs.writeFileSync(jksPath, 'placeholder');
+
+        assert.strictEqual(parseCertificateInputFromFile(p12Path).kind, 'pkcs12');
+        assert.strictEqual(parseCertificateInputFromFile(p7bPath).kind, 'pkcs7');
+        assert.strictEqual(parseCertificateInputFromFile(jksPath).kind, 'jks');
+    });
+
+    test('validates hostname and purpose against a parsed artifact', () => {
+        const artifact = parseCertificateInputFromText(TEST_CERT_PEM, {
+            kind: 'pasted',
+            label: 'cert',
+        });
+
+        const matching = validateArtifact(artifact, {
+            hostname: 'example.com',
+            purpose: 'serverAuth',
+        });
+        const mismatch = validateArtifact(artifact, {
+            hostname: 'api.example.com',
+        });
+
+        assert.ok(matching.issues.some((issue) => issue.code === 'hostname-match'));
+        assert.ok(mismatch.issues.some((issue) => issue.code === 'hostname-mismatch'));
+    });
+
+    test('analyzes duplicate and incomplete chains', () => {
+        const artifact = parseCertificateInputFromText(`${TEST_CERT_PEM}\n${TEST_CERT_PEM}`, {
+            kind: 'pasted',
+            label: 'bundle',
+        });
+        const chain = analyzeCertificateChain(artifact.certificates);
+
+        assert.ok(chain);
+        assert.ok(chain?.duplicateSerialNumbers.length);
+        assert.ok(chain?.warnings.some((warning) => warning.includes('Duplicate')));
+    });
+
+    test('classifies expiry status relative to a reference date', () => {
+        const reference = new Date('2026-06-17T00:00:00Z');
+
+        assert.strictEqual(getCertificateStatus('2026-06-16T00:00:00Z', reference), 'expired');
+        assert.strictEqual(getCertificateStatus(reference, reference), 'expired');
+        assert.strictEqual(getCertificateStatus('2026-07-01T00:00:00Z', reference), 'expiring');
+        assert.strictEqual(getCertificateStatus('2026-08-01T00:00:00Z', reference), 'valid');
     });
 
     test('rejects invalid certificate content', () => {
         assert.throws(() => parseCertificateContent('not a certificate', 'PEM'));
     });
+});
 
-    test('reports unsupported PKCS#12 and JKS files instead of attempting to parse them', () => {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cert-util-test-'));
-        const p12Path = path.join(tempDir, 'bundle.p12');
-        const jksPath = path.join(tempDir, 'keystore.jks');
-        fs.writeFileSync(p12Path, 'placeholder');
-        fs.writeFileSync(jksPath, 'placeholder');
+suite('externalTools helpers', () => {
+    test('builds command recipes consistently', () => {
+        assert.ok(buildPemToDerCommand('cert.pem', 'cert.der').includes('openssl x509'));
+        assert.ok(buildDerToPemCommand('cert.der', 'cert.pem').includes('openssl x509'));
+        const pkcs12Command = buildPkcs12ExportCommand('cert.pem', 'key.pem', 'cert.p12', 'secret');
+        assert.ok(pkcs12Command.includes('openssl pkcs12'));
+        assert.ok(pkcs12Command.includes('<password>'));
+        assert.ok(!pkcs12Command.includes('secret'));
+        assert.ok(buildJksExportCommand('keystore.jks', 'server').includes('keytool'));
+        assert.ok(buildJksToPkcs12Command('keystore.jks').includes('PKCS12'));
+    });
 
-        assert.throws(() => parseCertificateFile(p12Path), /not supported/);
-        assert.throws(() => parseCertificateFile(jksPath), /not supported/);
+    test('parses OpenSSL-like outputs that contain PEM certificates', () => {
+        assert.strictEqual(parsePkcsCertificateOutput(TEST_CERT_PEM), 1);
+        assert.strictEqual(parseRemoteInspectionOutput(`${TEST_CERT_PEM}\n${TEST_CERT_PEM}`), 2);
+    });
+
+    test('normalizes host names, URLs, and IPv6 remote targets', () => {
+        assert.deepStrictEqual(normalizeRemoteTarget('example.com'), { host: 'example.com', port: 443 });
+        assert.deepStrictEqual(normalizeRemoteTarget('example.com:8443'), { host: 'example.com', port: 8443 });
+        assert.deepStrictEqual(normalizeRemoteTarget('https://example.com:9443/path'), {
+            host: 'example.com',
+            port: 9443,
+        });
+        assert.deepStrictEqual(normalizeRemoteTarget('[2001:db8::1]:443'), {
+            host: '2001:db8::1',
+            port: 443,
+        });
+        assert.deepStrictEqual(normalizeRemoteTarget('2001:db8::1'), {
+            host: '2001:db8::1',
+            port: 443,
+        });
+    });
+
+    test('rejects malformed remote ports and unsupported URL schemes', () => {
+        assert.throws(() => normalizeRemoteTarget('example.com:not-a-port'), /port/i);
+        assert.throws(() => normalizeRemoteTarget('example.com:70000'), /65535/);
+        assert.throws(() => normalizeRemoteTarget('http://example.com'), /HTTPS/);
     });
 });

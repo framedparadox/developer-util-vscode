@@ -58,11 +58,67 @@
             {
                 "command": "certificateUtil.openCertificateTools",
                 "title": "Certificate Tools",
+                "category": "Certificate Utility",
                 "icon": "$(shield)"
+            },
+            {
+                "command": "certificateUtil.inspectActiveCertificate",
+                "title": "Inspect Active Certificate",
+                "category": "Certificate Utility",
+                "icon": "$(file-code)"
+            },
+            {
+                "command": "certificateUtil.inspectCertificateFile",
+                "title": "Inspect Certificate File",
+                "category": "Certificate Utility",
+                "icon": "$(folder-opened)"
+            },
+            {
+                "command": "certificateUtil.inspectRemoteCertificate",
+                "title": "Inspect Remote Certificate",
+                "category": "Certificate Utility",
+                "icon": "$(globe)"
+            },
+            {
+                "command": "certificateUtil.openInspectTool",
+                "title": "Open Inspect Tool",
+                "category": "Certificate Utility",
+                "icon": "$(search)"
+            },
+            {
+                "command": "certificateUtil.openValidateTool",
+                "title": "Open Validate Tool",
+                "category": "Certificate Utility",
+                "icon": "$(verified)"
+            },
+            {
+                "command": "certificateUtil.openChainTool",
+                "title": "Open Chain Tool",
+                "category": "Certificate Utility",
+                "icon": "$(list-tree)"
+            },
+            {
+                "command": "certificateUtil.openConvertTool",
+                "title": "Open Convert Tool",
+                "category": "Certificate Utility",
+                "icon": "$(arrow-swap)"
+            },
+            {
+                "command": "certificateUtil.openKeystoreTool",
+                "title": "Open Keystore Tool",
+                "category": "Certificate Utility",
+                "icon": "$(database)"
+            },
+            {
+                "command": "certificateUtil.openRemoteTool",
+                "title": "Open Remote Tool",
+                "category": "Certificate Utility",
+                "icon": "$(globe)"
             },
             {
                 "command": "certificateUtil.openExpiryChecker",
                 "title": "Certificate Expiry Checker",
+                "category": "Certificate Utility",
                 "icon": "$(calendar)"
             }
         ]
@@ -81,6 +137,10 @@
         "format:check": "prettier --check .",
         "test": "vscode-test",
         "build": "webpack --mode development"
+    },
+    "overrides": {
+        "diff": "8.0.3",
+        "serialize-javascript": "7.0.5"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
