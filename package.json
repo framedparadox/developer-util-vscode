@@ -1,8 +1,8 @@
 {
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
-    "description": "Essential developer utilities for development workflows, including data formatting, conversion, certificate, encoding, and debugging tools.",
-    "version": "0.0.3",
+    "description": "Developer utilities for data formatting, conversion, visualization, encoding, encryption, tokens, UUIDs, and certificates.",
+    "version": "0.0.4",
     "publisher": "framedparadox",
     "license": "MIT",
     "icon": "resources/electric.png",
@@ -37,15 +37,14 @@
         "Other",
         "Formatters"
     ],
-    "activationEvents": [],
     "main": "./dist/extension.js",
     "contributes": {
         "viewsContainers": {
             "activitybar": [
                 {
                     "id": "devx-explorer",
-                    "title": "DevX",
-                    "icon": "resources/electric-h.png"
+                    "title": "Developer Utilities",
+                    "icon": "resources/electric.svg"
                 }
             ]
         },
@@ -63,6 +62,7 @@
             {
                 "command": "devx.aesEncryptDecryptGeneric",
                 "title": "AES Encrypt / Decrypt",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/aes.png",
                     "dark": "resources/aes.png"
@@ -71,6 +71,7 @@
             {
                 "command": "devx.base64Tool",
                 "title": "Base64 Encode/Decode",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/64.png",
                     "dark": "resources/64.png"
@@ -79,6 +80,7 @@
             {
                 "command": "devx.jwtDebugger",
                 "title": "JWT Debugger",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/jwt.png",
                     "dark": "resources/jwt.png"
@@ -87,16 +89,19 @@
             {
                 "command": "devx.uuidGenerator",
                 "title": "UUID Generator",
+                "category": "Developer Utilities",
                 "icon": "$(symbol-misc)"
             },
             {
                 "command": "devx.escapeTool",
                 "title": "Format Text",
+                "category": "Developer Utilities",
                 "icon": "$(symbol-keyword)"
             },
             {
                 "command": "devx.formatterTool",
                 "title": "Data Formatter",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/align-justify.png",
                     "dark": "resources/align-justify.png"
@@ -105,16 +110,19 @@
             {
                 "command": "devx.certificateTool",
                 "title": "Certificate Tools",
+                "category": "Developer Utilities",
                 "icon": "$(shield)"
             },
             {
                 "command": "devx.certificateExpiryChecker",
                 "title": "Certificate Expiry Checker",
+                "category": "Developer Utilities",
                 "icon": "$(calendar)"
             },
             {
                 "command": "devx.visualizerTool",
                 "title": "Data Visualizer",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/electric.png",
                     "dark": "resources/electric.png"
@@ -123,6 +131,7 @@
             {
                 "command": "devx.visualizerFromFile",
                 "title": "Visualize Data",
+                "category": "Developer Utilities",
                 "icon": {
                     "light": "resources/electric.png",
                     "dark": "resources/electric.png"
@@ -131,16 +140,19 @@
             {
                 "command": "devx.dataConverter",
                 "title": "Data Converter",
+                "category": "Developer Utilities",
                 "icon": "$(sync)"
             },
             {
                 "command": "devx.configureSidebar",
                 "title": "Configure Sidebar",
+                "category": "Developer Utilities",
                 "icon": "$(gear)"
             },
             {
                 "command": "devx.refreshTools",
                 "title": "Refresh Tools",
+                "category": "Developer Utilities",
                 "icon": "$(refresh)"
             }
         ],
@@ -148,7 +160,7 @@
             "editor/title": [
                 {
                     "command": "devx.visualizerFromFile",
-                    "when": "resourceLangId == json || resourceLangId == yaml || resourceLangId == xml || resourceExtname == .csv || resourceExtname == .raml",
+                    "when": "resourceLangId == json || resourceLangId == jsonc || resourceLangId == yaml || resourceLangId == xml || resourceExtname == .csv || resourceExtname == .raml",
                     "group": "navigation"
                 }
             ],
@@ -174,38 +186,36 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "test": "vscode-test",
-        "build": "webpack --mode development"
+        "build": "webpack --mode development",
+        "package:vsix": "vsce package --no-dependencies"
     },
     "devDependencies": {
-        "@types/d3": "^7.4.3",
         "@types/js-yaml": "^4.0.9",
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
-        "@types/papaparse": "^5.3.16",
-        "@types/react": "^19.2.2",
-        "@types/react-dom": "^19.2.2",
-        "@types/vscode": "^1.105.0",
-        "@typescript-eslint/eslint-plugin": "^8.45.0",
-        "@typescript-eslint/parser": "^8.45.0",
-        "@vscode/test-cli": "^0.0.11",
+        "@types/papaparse": "^5.5.2",
+        "@types/vscode": "1.105.0",
+        "@typescript-eslint/eslint-plugin": "^8.62.1",
+        "@typescript-eslint/parser": "^8.62.1",
+        "@vscode/test-cli": "^0.0.15",
         "@vscode/test-electron": "^2.5.2",
-        "css-loader": "^7.1.2",
-        "eslint": "^9.36.0",
-        "monaco-editor-webpack-plugin": "^7.1.1",
-        "prettier": "^3.6.2",
-        "style-loader": "^4.0.0",
-        "ts-loader": "^9.5.4",
+        "@vscode/vsce": "^3.9.2",
+        "eslint": "^9.39.4",
+        "ovsx": "^1.0.2",
+        "prettier": "^3.9.4",
+        "ts-loader": "^9.6.2",
         "typescript": "^5.9.3",
-        "webpack": "^5.102.0",
+        "webpack": "^5.108.3",
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
         "d3": "^7.9.0",
-        "fast-xml-parser": "^5.3.0",
-        "js-yaml": "^4.1.0",
-        "monaco-editor": "^0.54.0",
-        "papaparse": "^5.5.3",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0"
+        "fast-xml-parser": "^5.9.3",
+        "js-yaml": "^4.3.0",
+        "papaparse": "^5.5.4"
+    },
+    "overrides": {
+        "diff": "^8.0.4",
+        "serialize-javascript": "^7.0.6"
     }
 }
