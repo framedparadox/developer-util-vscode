@@ -507,9 +507,10 @@ export class FormatterPanel {
 <body>
     <div class="header">
         <h1>
-            <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 7h16v2H4V7zm0 4h10v2H4v-2zm0 4h16v2H4v-2zm14-4h2v2h-2v-2z"/>
-                <rect x="16" y="11" width="4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#3794ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7.5 4C5.8 4 5.5 5 5.5 6.5S5.8 9.5 4 12c1.8 2.5 1.5 3.5 1.5 5.5S5.8 20 7.5 20"/>
+                <path d="M16.5 4c1.7 0 2 1 2 2.5s-.3 3 1.5 5.5c-1.8 2.5-1.5 3.5-1.5 5.5s-.3 2.5-2 2.5"/>
+                <path d="M9.5 9h2M9.5 12h5M9.5 15h3" stroke-width="1.5"/>
             </svg>
             Data Formatter
         </h1>

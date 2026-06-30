@@ -631,9 +631,9 @@ export class AesEncryptDecryptPanel {
     <div class="container">
         <h2>
             <svg class="header-icon" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L4 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-8-3z" fill="#2aa198"/>
-                <rect x="8" y="11" width="8" height="6" rx="1" fill="#f9a825"/>
-                <path d="M10 11V9.5a2 2 0 1 1 4 0V11" stroke="#f9a825" stroke-width="1.2"/>
+                <path d="M12 2.5l7 2.6v5.4c0 4.95-3.3 9.25-7 10.5-3.7-1.25-7-5.55-7-10.5V5.1l7-2.6z" fill="#4CAF50" fill-opacity="0.18" stroke="#4CAF50" stroke-width="1.6" stroke-linejoin="round"/>
+                <circle cx="12" cy="10.8" r="1.8" fill="#2E7D32"/>
+                <path d="M12 12.4v3" stroke="#2E7D32" stroke-width="1.9" stroke-linecap="round"/>
             </svg>
             AES Encrypt / Decrypt
         </h2>

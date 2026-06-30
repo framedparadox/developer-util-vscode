@@ -290,8 +290,11 @@ export class JWTPanel {
         <body>
             <div class="container">
                 <h2>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none">
+                        <circle cx="8" cy="8" r="4.2" fill="#ce9178" fill-opacity="0.18" stroke="#ce9178" stroke-width="1.7"/>
+                        <circle cx="8" cy="8" r="1.3" fill="#ce9178"/>
+                        <path d="M10.95 10.95l7.05 7.05" stroke="#ce9178" stroke-width="1.7" stroke-linecap="round"/>
+                        <path d="M15 15l1.7 1.7M17 13l1.8 1.8" stroke="#ce9178" stroke-width="1.7" stroke-linecap="round"/>
                     </svg>
                     JWT Debugger
                 </h2>

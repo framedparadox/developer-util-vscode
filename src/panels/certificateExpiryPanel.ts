@@ -545,11 +545,13 @@ export class CertificateExpiryPanel {
 </head>
 <body>
     <h1>
-        <svg class="calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
+        <svg class="calendar-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M4 5.5h16V11H4z" fill="#f14c4c" fill-opacity="0.16"></path>
+            <rect x="4" y="5.5" width="16" height="14" rx="1.8" stroke="#f14c4c" stroke-width="1.6"></rect>
+            <path d="M4 10h16" stroke="#f14c4c" stroke-width="1.6"></path>
+            <path d="M8 3.5v3.5M16 3.5v3.5" stroke="#f14c4c" stroke-width="1.6" stroke-linecap="round"></path>
+            <circle cx="15.5" cy="15.5" r="3.6" fill="#f14c4c" fill-opacity="0.16" stroke="#f14c4c" stroke-width="1.5"></circle>
+            <path d="M15.5 13.8v1.7l1.2 1" stroke="#f14c4c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
         </svg>
         Certificate Expiry Checker
     </h1>

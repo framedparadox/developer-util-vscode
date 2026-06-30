@@ -364,10 +364,13 @@ export class UUIDPanel {
         <body>
             <div class="container">
                 <h2>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                        <path d="M12 6v6l4 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <circle cx="12" cy="12" r="3"/>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#c586c0" stroke-width="1.7" stroke-linecap="round">
+                        <path d="M5 9.2a8 8 0 0 1 14 0"/>
+                        <path d="M7.6 10.5a5 5 0 0 1 8.8 0v2.3"/>
+                        <path d="M10.2 11.5a2.4 2.4 0 0 1 4 1.8c0 2.3-.3 4-1 5.6"/>
+                        <path d="M12 13.2v3.2c0 1.3-.3 2.4-.8 3.4"/>
+                        <path d="M7.4 14.4c.3 2.2-.1 4-1.1 5.6"/>
+                        <path d="M16.4 15.6a12 12 0 0 1-.9 4.2"/>
                     </svg>
                     UUID Generator
                 </h2>
