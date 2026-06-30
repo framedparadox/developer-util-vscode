@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
 import * as vscode from 'vscode';
@@ -16,19 +17,14 @@ type AesSourceType = 'text' | 'file' | 'url';
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 
 /**
- * Returns true for hostnames that resolve to loopback, link-local, or private
- * network ranges that a URL fetch must never reach (SSRF protection). Matches on
- * the URL literal only — it does not perform DNS resolution, so it catches the
- * common attack vectors (localhost, metadata IP, RFC1918 literals) without a
- * blocking lookup.
+ * Returns true for an IP literal (IPv4 or IPv6) that falls in loopback,
+ * link-local, or private network ranges. Used both to reject obvious IP
+ * literals in the URL and to validate the address actually resolved by DNS,
+ * since checking the hostname string alone is bypassable via DNS rebinding
+ * (a hostname that resolves to e.g. 169.254.169.254).
  */
-function isBlockedHost(hostname: string): boolean {
-    // URL hostnames keep IPv6 addresses wrapped in brackets.
-    const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
-
-    if (host === 'localhost' || host.endsWith('.localhost')) {
-        return true;
-    }
+function isBlockedIpLiteral(ipAddress: string): boolean {
+    const host = ipAddress.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
 
     // IPv6 loopback (::1) and unique-local / link-local ranges (fc00::/7, fe80::/10).
     if (host === '::1' || host === '::' || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) {
@@ -57,6 +53,22 @@ function isBlockedHost(hostname: string): boolean {
     }
 
     return false;
+}
+
+/**
+ * Returns true for hostnames that are themselves blocked literals
+ * (localhost, or an IP literal in a blocked range). This is a fast,
+ * pre-DNS check; the actual resolved address is validated separately
+ * in fetchUrlContent before connecting.
+ */
+function isBlockedHost(hostname: string): boolean {
+    const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+
+    if (host === 'localhost' || host.endsWith('.localhost')) {
+        return true;
+    }
+
+    return isBlockedIpLiteral(host);
 }
 
 interface ProcessAesMessage {
@@ -242,6 +254,25 @@ export class AesEncryptDecryptPanel {
             throw new Error('Refusing to fetch URLs that target local or private network addresses.');
         }
 
+        // Resolve DNS ourselves and validate the resolved address before connecting.
+        // Checking the hostname string alone is bypassable via DNS rebinding (a
+        // public-looking hostname that resolves to a loopback/private/metadata IP),
+        // so we pin the connection to this validated address via the `lookup` option
+        // rather than letting Node re-resolve the hostname at connect time.
+        const resolvedAddress = await new Promise<{ address: string; family: number }>((resolve, reject) => {
+            dns.lookup(parsedUrl.hostname, (error, address, family) => {
+                if (error) {
+                    reject(new Error(`Failed to resolve URL host: ${error.message}`));
+                    return;
+                }
+                resolve({ address, family });
+            });
+        });
+
+        if (isBlockedIpLiteral(resolvedAddress.address)) {
+            throw new Error('Refusing to fetch URLs that target local or private network addresses.');
+        }
+
         return new Promise<Buffer>((resolve, reject) => {
             const requestLib = parsedUrl.protocol === 'https:' ? https : http;
             const request = requestLib.request(
@@ -251,6 +282,9 @@ export class AesEncryptDecryptPanel {
                     timeout: 10000,
                     headers: {
                         'User-Agent': 'devx-vscode-aes-tool',
+                    },
+                    lookup: (_hostname, _options, callback) => {
+                        callback(null, resolvedAddress.address, resolvedAddress.family);
                     },
                 },
                 (response) => {
@@ -708,6 +742,7 @@ export class AesEncryptDecryptPanel {
                             <option value="NoPadding">NoPadding</option>
                         </select>
                         <div class="hint" id="paddingHint" style="display:none;">Padding is ignored for CFB/CTR/OFB.</div>
+                        <div class="hint" id="ecbHint" style="display:none;">ECB mode uses no IV and does not hide data patterns. Avoid it unless required for compatibility.</div>
                     </div>
                     <div class="field">
                         <label for="keyType">Key Type</label>
@@ -858,6 +893,7 @@ export class AesEncryptDecryptPanel {
         const modeEl = document.getElementById('mode');
         const paddingEl = document.getElementById('padding');
         const paddingHintEl = document.getElementById('paddingHint');
+        const ecbHintEl = document.getElementById('ecbHint');
         const keyTypeEl = document.getElementById('keyType');
         const hashEl = document.getElementById('hash');
         const saltTypeEl = document.getElementById('saltType');
@@ -917,6 +953,7 @@ export class AesEncryptDecryptPanel {
             const blockMode = isBlockMode(modeEl.value);
             paddingEl.disabled = !blockMode;
             paddingHintEl.style.display = blockMode ? 'none' : 'block';
+            ecbHintEl.style.display = modeEl.value === 'ECB' ? 'block' : 'none';
         }
 
         function updateIterationState() {
