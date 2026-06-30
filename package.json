@@ -2,7 +2,7 @@
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
     "description": "Developer utilities for data formatting, conversion, visualization, encoding, encryption, tokens, UUIDs, and certificates.",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "publisher": "framedparadox",
     "license": "MIT",
     "icon": "resources/electric.png",
