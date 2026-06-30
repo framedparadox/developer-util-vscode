@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
+export function quotePosixShellArgument(value: string): string {
+    return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
 export class CertificatePanel {
     public static currentPanel: CertificatePanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -20,16 +24,20 @@ export class CertificatePanel {
                     case 'decodeCert':
                         this.handleDecodeCert(message.cert);
                         return;
-                    case 'extractFromJKS':
-                        this.handleExtractFromJKS(message.jksBase64, message.password, message.alias);
+                    case 'generateJksInstructions':
+                        this.handleGenerateJksInstructions(message.keystorePath, message.alias);
                         return;
-                    case 'convertToPKCS12':
-                        this.handleConvertToPKCS12(message.cert, message.key, message.password);
+                    case 'generatePkcs12Instructions':
+                        this.handleGeneratePkcs12Instructions(
+                            message.certificatePath,
+                            message.keyPath,
+                            message.outputPath,
+                        );
                         return;
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -44,7 +52,7 @@ export class CertificatePanel {
                 {
                     enableScripts: true,
                     retainContextWhenHidden: true,
-                }
+                },
             );
 
             panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'certificate.svg');
@@ -156,43 +164,48 @@ export class CertificatePanel {
         }
     }
 
-    private handleExtractFromJKS(jksBase64: string, password: string, alias: string) {
-        try {
-            // Note: Node.js doesn't natively support JKS format
-            // This would require additional libraries like 'node-forge' or 'jks-js'
-            this._panel.webview.postMessage({
-                command: 'error',
-                message:
-                    'JKS extraction requires additional dependencies. Please use Java keytool:\n\n' +
-                    `keytool -exportcert -alias ${alias} -keystore keystore.jks -rfc -file cert.pem\n` +
-                    `keytool -importkeystore -srckeystore keystore.jks -destkeystore keystore.p12 -deststoretype PKCS12`,
-            });
-        } catch (error) {
-            this._panel.webview.postMessage({
-                command: 'error',
-                message: `JKS extraction failed: ${error instanceof Error ? error.message : String(error)}`,
-            });
+    private handleGenerateJksInstructions(keystorePath: unknown, alias: unknown) {
+        if (typeof keystorePath !== 'string' || !keystorePath.trim() || typeof alias !== 'string' || !alias.trim()) {
+            this.postError('Enter a JKS path and certificate alias.');
+            return;
         }
+
+        const command =
+            `keytool -exportcert -rfc -keystore ${quotePosixShellArgument(keystorePath.trim())} ` +
+            `-alias ${quotePosixShellArgument(alias.trim())} -file certificate.pem`;
+        this._panel.webview.postMessage({
+            command: 'jksInstructionsResult',
+            result: `Run this POSIX-compatible command in a trusted terminal. keytool will prompt for the keystore password:\n\n${command}`,
+        });
     }
 
-    private handleConvertToPKCS12(certPem: string, keyPem: string, password: string) {
-        try {
-            // Note: Creating PKCS12 requires OpenSSL or additional libraries
-            // Provide command-line instructions instead
-            const opensslCmd = `openssl pkcs12 -export -out certificate.p12 -inkey private.key -in certificate.crt -password pass:${password}`;
-
-            this._panel.webview.postMessage({
-                command: 'convertResult',
-                result:
-                    `To convert to PKCS12 format, use OpenSSL:\n\n${opensslCmd}\n\n` +
-                    'Or save your certificate and key to files and use the command above.',
-            });
-        } catch (error) {
-            this._panel.webview.postMessage({
-                command: 'error',
-                message: `Conversion failed: ${error instanceof Error ? error.message : String(error)}`,
-            });
+    private handleGeneratePkcs12Instructions(certificatePath: unknown, keyPath: unknown, outputPath: unknown) {
+        if (
+            typeof certificatePath !== 'string' ||
+            !certificatePath.trim() ||
+            typeof keyPath !== 'string' ||
+            !keyPath.trim() ||
+            typeof outputPath !== 'string' ||
+            !outputPath.trim()
+        ) {
+            this.postError('Enter certificate, private-key, and output paths.');
+            return;
         }
+
+        const command =
+            `openssl pkcs12 -export -in ${quotePosixShellArgument(certificatePath.trim())} ` +
+            `-inkey ${quotePosixShellArgument(keyPath.trim())} -out ${quotePosixShellArgument(outputPath.trim())}`;
+        this._panel.webview.postMessage({
+            command: 'pkcs12InstructionsResult',
+            result: `Run this POSIX-compatible command in a trusted terminal. OpenSSL will prompt for the PKCS#12 password:\n\n${command}`,
+        });
+    }
+
+    private postError(message: string): void {
+        this._panel.webview.postMessage({
+            command: 'error',
+            message,
+        });
     }
 
     private cleanPEM(pem: string, type: string): string {
@@ -217,7 +230,7 @@ export class CertificatePanel {
     private _getWebviewContent(): string {
         const webview = this._panel.webview;
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -394,8 +407,8 @@ export class CertificatePanel {
     <div class="tabs">
         <button class="tab" data-tab="validate">Validate</button>
         <button class="tab active" data-tab="decode">Decode</button>
-        <button class="tab" data-tab="jks">Extract from JKS</button>
-        <button class="tab" data-tab="convert">Convert to PKCS12</button>
+        <button class="tab" data-tab="jks">JKS Export Command</button>
+        <button class="tab" data-tab="convert">PKCS#12 Command</button>
     </div>
 
     <!-- Validate Tab -->
@@ -427,26 +440,22 @@ export class CertificatePanel {
         <div id="decode-message"></div>
     </div>
 
-    <!-- Extract from JKS Tab -->
+    <!-- JKS command tab -->
     <div class="tab-content" id="jks">
         <div class="info-box">
-            <strong>Note:</strong> JKS extraction requires Java keytool. This tool provides command-line instructions.
+            Generate a Java keytool command. Passwords are not collected; keytool prompts for them in your terminal.
         </div>
         <div class="section">
             <div class="field-group">
-                <label for="jks-file">JKS File (Base64):</label>
-                <textarea id="jks-file" placeholder="Base64 encoded JKS file content..."></textarea>
-            </div>
-            <div class="field-group">
-                <label for="jks-password">Keystore Password:</label>
-                <input type="password" id="jks-password" placeholder="Enter keystore password">
+                <label for="jks-path">JKS path:</label>
+                <input type="text" id="jks-path" value="keystore.jks">
             </div>
             <div class="field-group">
                 <label for="jks-alias">Alias:</label>
                 <input type="text" id="jks-alias" placeholder="Enter certificate alias">
             </div>
             <div class="button-group">
-                <button id="extract-btn">Extract</button>
+                <button id="extract-btn">Generate Command</button>
                 <button id="clear-jks-btn" class="secondary"><svg class="btn-icon" viewBox="0 0 16 16"><path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.708.708L7.293 8l-3.647 3.646.708.708L8 8.707z"/></svg>Clear</button>
             </div>
         </div>
@@ -454,23 +463,23 @@ export class CertificatePanel {
         <div id="jks-message"></div>
     </div>
 
-    <!-- Convert to PKCS12 Tab -->
+    <!-- PKCS#12 command tab -->
     <div class="tab-content" id="convert">
         <div class="info-box">
-            <strong>Note:</strong> PKCS12 conversion requires OpenSSL. This tool provides command-line instructions.
+            Generate an OpenSSL command. Passwords and private-key contents remain in your files and terminal.
         </div>
         <div class="section">
             <div class="field-group">
-                <label for="convert-cert">Certificate (PEM format):</label>
-                <textarea id="convert-cert" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+                <label for="convert-cert-path">Certificate path:</label>
+                <input type="text" id="convert-cert-path" value="certificate.pem">
             </div>
             <div class="field-group">
-                <label for="convert-key">Private Key (PEM format):</label>
-                <textarea id="convert-key" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+                <label for="convert-key-path">Private-key path:</label>
+                <input type="text" id="convert-key-path" value="private.key">
             </div>
             <div class="field-group">
-                <label for="convert-password">PKCS12 Password:</label>
-                <input type="password" id="convert-password" placeholder="Enter password for PKCS12 file">
+                <label for="convert-output-path">Output path:</label>
+                <input type="text" id="convert-output-path" value="certificate.p12">
             </div>
             <div class="button-group">
                 <button id="convert-btn">Generate Instructions</button>
@@ -542,20 +551,18 @@ export class CertificatePanel {
 
         // JKS tab
         document.getElementById('extract-btn').addEventListener('click', () => {
-            const jksBase64 = document.getElementById('jks-file').value.trim();
-            const password = document.getElementById('jks-password').value;
+            const keystorePath = document.getElementById('jks-path').value.trim();
             const alias = document.getElementById('jks-alias').value;
 
-            if (!jksBase64 || !password || !alias) {
-                showMessage('jks-message', 'Please fill in all fields', 'error');
+            if (!keystorePath || !alias) {
+                showMessage('jks-message', 'Enter a JKS path and alias', 'error');
                 return;
             }
-            vscode.postMessage({ command: 'extractFromJKS', jksBase64, password, alias });
+            vscode.postMessage({ command: 'generateJksInstructions', keystorePath, alias });
         });
 
         document.getElementById('clear-jks-btn').addEventListener('click', () => {
-            document.getElementById('jks-file').value = '';
-            document.getElementById('jks-password').value = '';
+            document.getElementById('jks-path').value = 'keystore.jks';
             document.getElementById('jks-alias').value = '';
             document.getElementById('jks-result').innerHTML = '';
             document.getElementById('jks-message').textContent = '';
@@ -563,21 +570,21 @@ export class CertificatePanel {
 
         // Convert tab
         document.getElementById('convert-btn').addEventListener('click', () => {
-            const cert = document.getElementById('convert-cert').value.trim();
-            const key = document.getElementById('convert-key').value.trim();
-            const password = document.getElementById('convert-password').value;
+            const certificatePath = document.getElementById('convert-cert-path').value.trim();
+            const keyPath = document.getElementById('convert-key-path').value.trim();
+            const outputPath = document.getElementById('convert-output-path').value.trim();
 
-            if (!cert || !key || !password) {
+            if (!certificatePath || !keyPath || !outputPath) {
                 showMessage('convert-message', 'Please fill in all fields', 'error');
                 return;
             }
-            vscode.postMessage({ command: 'convertToPKCS12', cert, key, password });
+            vscode.postMessage({ command: 'generatePkcs12Instructions', certificatePath, keyPath, outputPath });
         });
 
         document.getElementById('clear-convert-btn').addEventListener('click', () => {
-            document.getElementById('convert-cert').value = '';
-            document.getElementById('convert-key').value = '';
-            document.getElementById('convert-password').value = '';
+            document.getElementById('convert-cert-path').value = 'certificate.pem';
+            document.getElementById('convert-key-path').value = 'private.key';
+            document.getElementById('convert-output-path').value = 'certificate.p12';
             document.getElementById('convert-result').innerHTML = '';
             document.getElementById('convert-message').textContent = '';
         });
@@ -594,7 +601,12 @@ export class CertificatePanel {
                         '<div class="result-box">' + escapeHtml(msg.result) + '</div>';
                     showMessage('decode-message', 'Certificate decoded successfully!', 'success');
                     break;
-                case 'convertResult':
+                case 'jksInstructionsResult':
+                    document.getElementById('jks-result').innerHTML =
+                        '<div class="result-box">' + escapeHtml(msg.result) + '</div>';
+                    showMessage('jks-message', 'Command generated!', 'success');
+                    break;
+                case 'pkcs12InstructionsResult':
                     document.getElementById('convert-result').innerHTML =
                         '<div class="result-box">' + escapeHtml(msg.result) + '</div>';
                     showMessage('convert-message', 'Instructions generated!', 'success');
@@ -611,15 +623,15 @@ export class CertificatePanel {
             const className = result.valid ? 'valid' : 'invalid';
 
             let html = '<div class="result-box ' + className + '">';
-            html += '<strong>Status:</strong> ' + result.message + '\\n\\n';
+            html += '<strong>Status:</strong> ' + escapeHtml(String(result.message)) + '\\n\\n';
 
             if (result.subject) {
-                html += '<strong>Subject:</strong> ' + result.subject + '\\n';
-                html += '<strong>Issuer:</strong> ' + result.issuer + '\\n';
-                html += '<strong>Valid From:</strong> ' + result.validFrom + '\\n';
-                html += '<strong>Valid To:</strong> ' + result.validTo + '\\n';
-                html += '<strong>Serial Number:</strong> ' + result.serialNumber + '\\n';
-                html += '<strong>Fingerprint:</strong> ' + result.fingerprint + '\\n';
+                html += '<strong>Subject:</strong> ' + escapeHtml(String(result.subject)) + '\\n';
+                html += '<strong>Issuer:</strong> ' + escapeHtml(String(result.issuer)) + '\\n';
+                html += '<strong>Valid From:</strong> ' + escapeHtml(String(result.validFrom)) + '\\n';
+                html += '<strong>Valid To:</strong> ' + escapeHtml(String(result.validTo)) + '\\n';
+                html += '<strong>Serial Number:</strong> ' + escapeHtml(String(result.serialNumber)) + '\\n';
+                html += '<strong>Fingerprint:</strong> ' + escapeHtml(String(result.fingerprint)) + '\\n';
             }
 
             html += '</div>';

@@ -27,6 +27,7 @@ export interface AesOperationSettings {
 }
 
 const AES_BLOCK_SIZE = 16;
+const MAX_KDF_ITERATIONS = 1_000_000;
 const SALTED_PREFIX = Buffer.from('Salted__', 'ascii');
 const SALT_SIZE_BYTES = 8;
 const BLOCK_MODES = new Set<AesMode>(['CBC', 'ECB']);
@@ -149,12 +150,38 @@ function getAlgorithm(keySize: AesKeySize, mode: AesMode): string {
 }
 
 function validateSettings(settings: AesOperationSettings): void {
+    if (!settings || typeof settings !== 'object') {
+        throw new Error('AES settings are required.');
+    }
+    if (![128, 192, 256].includes(settings.keySize)) {
+        throw new Error(`Unsupported AES key size: ${settings.keySize}`);
+    }
+    if (!['CBC', 'CFB', 'CTR', 'OFB', 'ECB'].includes(settings.mode)) {
+        throw new Error(`Unsupported AES mode: ${settings.mode}`);
+    }
+    if (!['Pkcs7', 'Iso97971', 'AnsiX923', 'Iso10126', 'ZeroPadding', 'NoPadding'].includes(settings.padding)) {
+        throw new Error(`Unsupported padding: ${settings.padding}`);
+    }
+    if (!['custom', 'PBKDF2', 'EvpKDF'].includes(settings.keyType)) {
+        throw new Error(`Unsupported key type: ${settings.keyType}`);
+    }
+    if (!Object.prototype.hasOwnProperty.call(HASH_ALGORITHM, settings.hash)) {
+        throw new Error(`Unsupported hash algorithm: ${settings.hash}`);
+    }
+    if (!['random', 'nosalt', 'custom'].includes(settings.saltType)) {
+        throw new Error(`Unsupported salt type: ${settings.saltType}`);
+    }
+
     if (settings.keyType !== 'custom') {
         if (!settings.passphrase) {
             throw new Error('Passphrase is required for PBKDF2/EvpKDF key types.');
         }
-        if (!Number.isInteger(settings.iteration) || settings.iteration < 1) {
-            throw new Error('Iteration must be a positive integer.');
+        if (
+            !Number.isInteger(settings.iteration) ||
+            settings.iteration < 1 ||
+            settings.iteration > MAX_KDF_ITERATIONS
+        ) {
+            throw new Error(`Iteration must be an integer between 1 and ${MAX_KDF_ITERATIONS}.`);
         }
     }
 
@@ -184,7 +211,7 @@ function resolveKeyMaterialForEncrypt(settings: AesOperationSettings): {
 
 function resolveKeyMaterialForDecrypt(
     settings: AesOperationSettings,
-    parsedSalt: Buffer | null
+    parsedSalt: Buffer | null,
 ): {
     key: Buffer;
     iv: Buffer;
@@ -244,10 +271,7 @@ function resolveEncryptSalt(settings: AesOperationSettings): Buffer | null {
     }
 }
 
-function resolveDerivedKeyMaterial(
-    settings: AesOperationSettings,
-    salt: Buffer | null
-): { key: Buffer; iv: Buffer } {
+function resolveDerivedKeyMaterial(settings: AesOperationSettings, salt: Buffer | null): { key: Buffer; iv: Buffer } {
     const keyBytes = settings.keySize / 8;
     const ivBytes = AES_BLOCK_SIZE;
     const totalBytes = keyBytes + ivBytes;
@@ -274,7 +298,13 @@ function resolveDerivedKeyMaterial(
     };
 }
 
-function evpKdf(passphrase: Buffer, salt: Buffer | null, totalBytes: number, iterations: number, digest: string): Buffer {
+function evpKdf(
+    passphrase: Buffer,
+    salt: Buffer | null,
+    totalBytes: number,
+    iterations: number,
+    digest: string,
+): Buffer {
     let derived = Buffer.alloc(0);
     let block = Buffer.alloc(0);
 

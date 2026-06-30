@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { DataConverter } from '../converter/dataConverter';
+import { DataConverter, MAX_CONVERSION_INPUT_BYTES } from '../converter/dataConverter';
 
 // ─── detectFormat (static) ────────────────────────────────────────────────────
 
@@ -402,5 +402,19 @@ suite('DataConverter – edge cases', () => {
         // This actually works; testing unsupported is done via TypeScript at compile time.
         // Verify that a valid source doesn't erroneously fail.
         assert.ok(result !== undefined);
+    });
+
+    test('rejects input larger than 10 MB', () => {
+        const converter = new DataConverter();
+        const result = converter.convert(' '.repeat(MAX_CONVERSION_INPUT_BYTES + 1), 'json', 'json');
+        assert.strictEqual(result.success, false);
+        assert.match(result.error ?? '', /10 MB limit/);
+    });
+
+    test('rejects circular YAML aliases', () => {
+        const converter = new DataConverter();
+        const result = converter.convert('root: &root\n  self: *root', 'yaml', 'json');
+        assert.strictEqual(result.success, false);
+        assert.match(result.error ?? '', /Circular references/);
     });
 });

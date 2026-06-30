@@ -16,23 +16,27 @@ export class ConfigSidebarPanel {
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._initHtml();
         this._panel.webview.onDidReceiveMessage(
-            (message) => {
+            async (message) => {
                 switch (message.command) {
                     case 'save': {
-                        this._context.globalState.update(SIDEBAR_VISIBILITY_KEY, message.visibility);
-                        this._context.globalState.update(SIDEBAR_DISPLAY_MODE_KEY, message.mode);
-                        this._context.globalState.update(
-                            GENERAL_PREFERENCES_KEY,
-                            message.preferences ?? DEFAULT_GENERAL_PREFERENCES
-                        );
-                        this._panel.webview.postMessage({ command: 'saved' });
+                        const visibility = normalizeVisibility(message.visibility);
+                        const mode = normalizeDisplayMode(message.mode);
+                        const preferences = normalizeGeneralPreferences(message.preferences);
+                        await Promise.all([
+                            this._context.globalState.update(SIDEBAR_VISIBILITY_KEY, visibility),
+                            this._context.globalState.update(SIDEBAR_DISPLAY_MODE_KEY, mode),
+                            this._context.globalState.update(GENERAL_PREFERENCES_KEY, preferences),
+                        ]);
+                        await this._panel.webview.postMessage({ command: 'saved' });
                         this._onRefresh?.();
                         return;
                     }
                     case 'reset': {
-                        this._context.globalState.update(SIDEBAR_VISIBILITY_KEY, buildVisibilityDefaults());
-                        this._context.globalState.update(SIDEBAR_DISPLAY_MODE_KEY, 'compact');
-                        this._context.globalState.update(GENERAL_PREFERENCES_KEY, DEFAULT_GENERAL_PREFERENCES);
+                        await Promise.all([
+                            this._context.globalState.update(SIDEBAR_VISIBILITY_KEY, buildVisibilityDefaults()),
+                            this._context.globalState.update(SIDEBAR_DISPLAY_MODE_KEY, 'compact'),
+                            this._context.globalState.update(GENERAL_PREFERENCES_KEY, DEFAULT_GENERAL_PREFERENCES),
+                        ]);
                         this._initHtml();
                         this._onRefresh?.();
                         return;
@@ -40,7 +44,7 @@ export class ConfigSidebarPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -72,12 +76,14 @@ export class ConfigSidebarPanel {
     private async _initHtml(): Promise<void> {
         const webview = this._panel.webview;
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         const visibility = getVisibility(this._context);
         const mode = getDisplayMode(this._context);
         const preferences = getGeneralPreferences(this._context);
         const iconUri = (file: string) =>
-            webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'resources', 'icons', file)).toString();
+            webview
+                .asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'resources', 'icons', file))
+                .toString();
 
         const modeData = [
             {
@@ -108,7 +114,7 @@ export class ConfigSidebarPanel {
                 <div class="mode-card-title">${m.title}</div>
                 <div class="mode-card-desc">${m.desc}</div>
                 <div class="mode-preview">${m.preview}</div>
-            </div>`
+            </div>`,
             )
             .join('');
 
@@ -138,7 +144,7 @@ export class ConfigSidebarPanel {
                 <span class="pref-title">${pref.title}</span>
                 <span class="pref-desc">${pref.desc}</span>
             </span>
-        </label>`
+        </label>`,
             )
             .join('');
 
@@ -624,18 +630,49 @@ function buildVisibilityDefaults(): { [label: string]: boolean } {
 }
 
 export function getVisibility(context: vscode.ExtensionContext): { [label: string]: boolean } {
-    return {
-        ...buildVisibilityDefaults(),
-        ...context.globalState.get<{ [label: string]: boolean }>(SIDEBAR_VISIBILITY_KEY, {}),
-    };
+    return normalizeVisibility(context.globalState.get<unknown>(SIDEBAR_VISIBILITY_KEY));
 }
 
 export function getDisplayMode(context: vscode.ExtensionContext): SidebarDisplayMode {
-    return context.globalState.get<SidebarDisplayMode>(SIDEBAR_DISPLAY_MODE_KEY, 'compact');
+    return normalizeDisplayMode(context.globalState.get<unknown>(SIDEBAR_DISPLAY_MODE_KEY));
 }
 
 export function getGeneralPreferences(context: vscode.ExtensionContext): GeneralPreferences {
-    return context.globalState.get<GeneralPreferences>(GENERAL_PREFERENCES_KEY, DEFAULT_GENERAL_PREFERENCES);
+    return normalizeGeneralPreferences(context.globalState.get<unknown>(GENERAL_PREFERENCES_KEY));
+}
+
+function normalizeVisibility(value: unknown): { [label: string]: boolean } {
+    const defaults = buildVisibilityDefaults();
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return defaults;
+    }
+
+    const saved = value as Record<string, unknown>;
+    for (const tool of ALL_TOOLS) {
+        const isVisible = saved[tool.label];
+        if (typeof isVisible === 'boolean') {
+            defaults[tool.label] = isVisible;
+        }
+    }
+    return defaults;
+}
+
+function normalizeDisplayMode(value: unknown): SidebarDisplayMode {
+    return value === 'simple' || value === 'comfy' || value === 'icons' ? value : 'compact';
+}
+
+function normalizeGeneralPreferences(value: unknown): GeneralPreferences {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { ...DEFAULT_GENERAL_PREFERENCES };
+    }
+
+    const saved = value as Record<string, unknown>;
+    return {
+        showRefreshMessage:
+            typeof saved.showRefreshMessage === 'boolean'
+                ? saved.showRefreshMessage
+                : DEFAULT_GENERAL_PREFERENCES.showRefreshMessage,
+    };
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -674,7 +711,11 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             switch (message.command) {
                 case 'runTool':
-                    if (typeof message.toolCommand === 'string') {
+                    if (
+                        typeof message.toolCommand === 'string' &&
+                        (message.toolCommand === 'devx.configureSidebar' ||
+                            ALL_TOOLS.some((tool) => tool.command === message.toolCommand))
+                    ) {
                         await vscode.commands.executeCommand(message.toolCommand);
                     }
                     return;
@@ -739,7 +780,7 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
 
     private _getHtml(webview: vscode.Webview): string {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         const visibility = getVisibility(this._context);
         const mode = getDisplayMode(this._context);
 
@@ -749,7 +790,7 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
                 description: tool.description,
                 command: tool.command,
                 iconFile: tool.icon,
-            })
+            }),
         );
 
         const adminItems: SidebarViewItem[] = [

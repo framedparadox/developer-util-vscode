@@ -51,12 +51,40 @@ function minifyXML(text: string): string {
 
 function formatSQL(sql: string): string {
     const keywords = [
-        'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN',
-        'INNER JOIN', 'OUTER JOIN', 'ON', 'AND', 'OR', 'ORDER BY',
-        'GROUP BY', 'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO',
-        'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE',
-        'ALTER', 'DROP', 'AS', 'DISTINCT', 'UNION', 'CASE',
-        'WHEN', 'THEN', 'ELSE', 'END',
+        'SELECT',
+        'FROM',
+        'WHERE',
+        'JOIN',
+        'LEFT JOIN',
+        'RIGHT JOIN',
+        'INNER JOIN',
+        'OUTER JOIN',
+        'ON',
+        'AND',
+        'OR',
+        'ORDER BY',
+        'GROUP BY',
+        'HAVING',
+        'LIMIT',
+        'OFFSET',
+        'INSERT',
+        'INTO',
+        'VALUES',
+        'UPDATE',
+        'SET',
+        'DELETE',
+        'CREATE',
+        'TABLE',
+        'ALTER',
+        'DROP',
+        'AS',
+        'DISTINCT',
+        'UNION',
+        'CASE',
+        'WHEN',
+        'THEN',
+        'ELSE',
+        'END',
     ];
 
     let formatted = sql;
@@ -76,22 +104,32 @@ function formatSQL(sql: string): string {
     const indentedLines = lines.map((line) => {
         const upperLine = line.toUpperCase();
         if (
-            upperLine.startsWith('SELECT') || upperLine.startsWith('FROM') ||
-            upperLine.startsWith('WHERE') || upperLine.startsWith('ORDER BY') ||
-            upperLine.startsWith('GROUP BY') || upperLine.startsWith('HAVING') ||
-            upperLine.startsWith('UNION') || upperLine.startsWith('INSERT') ||
-            upperLine.startsWith('UPDATE') || upperLine.startsWith('DELETE') ||
-            upperLine.startsWith('CREATE') || upperLine.startsWith('ALTER') ||
+            upperLine.startsWith('SELECT') ||
+            upperLine.startsWith('FROM') ||
+            upperLine.startsWith('WHERE') ||
+            upperLine.startsWith('ORDER BY') ||
+            upperLine.startsWith('GROUP BY') ||
+            upperLine.startsWith('HAVING') ||
+            upperLine.startsWith('UNION') ||
+            upperLine.startsWith('INSERT') ||
+            upperLine.startsWith('UPDATE') ||
+            upperLine.startsWith('DELETE') ||
+            upperLine.startsWith('CREATE') ||
+            upperLine.startsWith('ALTER') ||
             upperLine.startsWith('DROP')
         ) {
             indentLevel = 0;
         } else if (upperLine.includes('JOIN')) {
             indentLevel = 1;
         } else if (
-            upperLine.startsWith('AND') || upperLine.startsWith('OR') ||
-            upperLine.startsWith('ON') || upperLine.startsWith('SET') ||
-            upperLine.startsWith('VALUES') || upperLine.startsWith('WHEN') ||
-            upperLine.startsWith('THEN') || upperLine.startsWith('ELSE') ||
+            upperLine.startsWith('AND') ||
+            upperLine.startsWith('OR') ||
+            upperLine.startsWith('ON') ||
+            upperLine.startsWith('SET') ||
+            upperLine.startsWith('VALUES') ||
+            upperLine.startsWith('WHEN') ||
+            upperLine.startsWith('THEN') ||
+            upperLine.startsWith('ELSE') ||
             upperLine.startsWith('END')
         ) {
             indentLevel = 1;
@@ -345,7 +383,7 @@ suite('FormatterPanel – formatSQL()', () => {
     });
 
     test('AND / OR are indented', () => {
-        const result = formatSQL('SELECT id FROM users WHERE id = 1 AND name = \'Alice\'');
+        const result = formatSQL("SELECT id FROM users WHERE id = 1 AND name = 'Alice'");
         const lines = result.split('\n');
         const andLine = lines.find((l) => l.trimStart().startsWith('AND'));
         assert.ok(andLine !== undefined);

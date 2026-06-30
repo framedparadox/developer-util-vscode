@@ -3,6 +3,8 @@ import { GraphEdge, GraphNode, GraphNodeType, GraphRow, GraphValueType, Visualiz
 interface GraphBuildState {
     nextNodeId: number;
     nextEdgeId: number;
+    visitedNodes: number;
+    maxNodes: number;
     nodes: GraphNode[];
     edges: GraphEdge[];
     maxDepth: number;
@@ -13,7 +15,10 @@ interface GraphBuildResult {
     edges: GraphEdge[];
     totalNodes: number;
     maxDepth: number;
+    exceededLimit: boolean;
 }
+
+class GraphNodeLimitError extends Error {}
 
 /**
  * Transforms parsed JSON data into a hierarchical VisualizerNode structure
@@ -22,22 +27,38 @@ export class DataTransformer {
     /**
      * Convert parsed data into card-style graph nodes and labeled edges.
      */
-    static jsonToGraph(data: unknown): GraphBuildResult {
+    static jsonToGraph(data: unknown, maxNodes: number = Number.POSITIVE_INFINITY): GraphBuildResult {
         const state: GraphBuildState = {
             nextNodeId: 1,
             nextEdgeId: 1,
+            visitedNodes: 0,
+            maxNodes: Math.max(1, maxNodes),
             nodes: [],
             edges: [],
             maxDepth: 0,
         };
 
-        this.buildGraphNode(data, 'Root', '$', 0, state);
+        try {
+            this.buildGraphNode(data, 'Root', '$', 0, state);
+        } catch (error) {
+            if (!(error instanceof GraphNodeLimitError)) {
+                throw error;
+            }
+            return {
+                nodes: [],
+                edges: [],
+                totalNodes: state.maxNodes + 1,
+                maxDepth: state.maxDepth,
+                exceededLimit: true,
+            };
+        }
 
         return {
             nodes: state.nodes,
             edges: state.edges,
             totalNodes: state.nodes.length,
             maxDepth: state.maxDepth,
+            exceededLimit: false,
         };
     }
 
@@ -77,7 +98,7 @@ export class DataTransformer {
                 label,
                 type: 'array',
                 children: obj.map((item: any, idx: number) =>
-                    this.jsonToNodes(item, `[${idx}]`, `${path}[${idx}]`, depth + 1)
+                    this.jsonToNodes(item, `[${idx}]`, `${path}[${idx}]`, depth + 1),
                 ),
                 metadata: {
                     depth,
@@ -176,8 +197,13 @@ export class DataTransformer {
         key: string,
         path: string,
         depth: number,
-        state: GraphBuildState
+        state: GraphBuildState,
     ): string {
+        state.visitedNodes += 1;
+        if (state.visitedNodes > state.maxNodes) {
+            throw new GraphNodeLimitError();
+        }
+
         const id = `node-${state.nextNodeId++}`;
         const nodeType = this.identifyGraphNodeType(value);
         const childEntries = this.getChildEntries(value);
@@ -210,7 +236,10 @@ export class DataTransformer {
 
                     rows.push({
                         key: child.key,
-                        value: childValueType === 'array' ? `[${childCount} ${childCount === 1 ? 'item' : 'items'}]` : `{${childCount} ${childCount === 1 ? 'key' : 'keys'}}`,
+                        value:
+                            childValueType === 'array'
+                                ? `[${childCount} ${childCount === 1 ? 'item' : 'items'}]`
+                                : `{${childCount} ${childCount === 1 ? 'key' : 'keys'}}`,
                         valueType: childValueType,
                         isReference: true,
                         childrenCount: childCount,

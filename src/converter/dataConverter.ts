@@ -3,23 +3,32 @@ import { JSONParser, YAMLParser, XMLParserImpl, CSVParser, RAMLParser } from '..
 import { detectDataFormat } from '../visualizer/format';
 import * as yaml from 'js-yaml';
 
+export const MAX_CONVERSION_INPUT_BYTES = 10 * 1024 * 1024;
+
 /**
  * DataConverter - Converts between different data formats
- * Currently supports converting all formats to JSON
+ * Converts supported input formats to JSON, YAML, or XML.
  */
 export class DataConverter implements IDataConverter {
     /**
      * Convert data from one format to another
      * @param content Source data as string
      * @param sourceFormat Source format (json, yaml, xml, csv, raml)
-     * @param targetFormat Target format (currently only json supported)
+     * @param targetFormat Target format (JSON, YAML, or XML)
      * @returns ConversionResult with output or error
      */
     convert(content: string, sourceFormat: ConversionFormat, targetFormat: OutputFormat): ConversionResult {
         const startTime = Date.now();
-        const sourceSize = new Blob([content]).size;
+        const sourceSize = typeof content === 'string' ? Buffer.byteLength(content, 'utf8') : 0;
 
         try {
+            if (typeof content !== 'string') {
+                throw new Error('Conversion input must be text.');
+            }
+            if (sourceSize > MAX_CONVERSION_INPUT_BYTES) {
+                throw new Error('Conversion input exceeds the 10 MB limit.');
+            }
+
             // Step 1: Parse source format to JSON object
             const parsedData = this.parseSourceFormat(content, sourceFormat);
 
@@ -27,7 +36,7 @@ export class DataConverter implements IDataConverter {
             const output = this.formatOutput(parsedData, targetFormat);
 
             const conversionTime = Date.now() - startTime;
-            const outputSize = new Blob([output]).size;
+            const outputSize = Buffer.byteLength(output, 'utf8');
 
             return {
                 success: true,
@@ -94,18 +103,28 @@ export class DataConverter implements IDataConverter {
     /**
      * Normalize parsed data to remove common issues
      */
-    private normalizeData(data: any): any {
+    private normalizeData(data: any, ancestors: WeakSet<object> = new WeakSet()): any {
         if (data === null || data === undefined) {
             return data;
         }
 
         // Handle arrays
         if (Array.isArray(data)) {
-            return data.map((item) => this.normalizeData(item));
+            if (ancestors.has(data)) {
+                throw new Error('Circular references are not supported.');
+            }
+            ancestors.add(data);
+            const normalized = data.map((item) => this.normalizeData(item, ancestors));
+            ancestors.delete(data);
+            return normalized;
         }
 
         // Handle objects
         if (typeof data === 'object') {
+            if (ancestors.has(data)) {
+                throw new Error('Circular references are not supported.');
+            }
+            ancestors.add(data);
             const normalized: any = {};
 
             for (const key of Object.keys(data)) {
@@ -116,10 +135,11 @@ export class DataConverter implements IDataConverter {
                 } else {
                     // Preserve all values, including empty objects/arrays, so
                     // conversions stay faithful to the source document.
-                    normalized[key] = this.normalizeData(value);
+                    normalized[key] = this.normalizeData(value, ancestors);
                 }
             }
 
+            ancestors.delete(data);
             return normalized;
         }
 

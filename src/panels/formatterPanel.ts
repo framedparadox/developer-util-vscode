@@ -32,7 +32,7 @@ export class FormatterPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -269,7 +269,7 @@ export class FormatterPanel {
     private _getWebviewContent(): string {
         const webview = this._panel.webview;
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
 <html lang="en">
 <head>

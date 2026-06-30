@@ -29,7 +29,7 @@ export class DataConverterPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -40,7 +40,6 @@ export class DataConverterPanel {
             const panel = vscode.window.createWebviewPanel('dataConverter', 'Data Converter', vscode.ViewColumn.One, {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [extensionUri],
             });
 
             panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'converter.svg');
@@ -73,7 +72,9 @@ export class DataConverterPanel {
                     detectedFormat,
                 });
             } catch (error) {
-                vscode.window.showErrorMessage(`Failed to load file: ${error instanceof Error ? error.message : String(error)}`);
+                vscode.window.showErrorMessage(
+                    `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
+                );
             }
         }
     }
@@ -88,7 +89,7 @@ export class DataConverterPanel {
 
         if (result.success) {
             vscode.window.showInformationMessage(
-                `Converted ${sourceFormat.toUpperCase()} to ${targetFormat.toUpperCase()} in ${result.metadata.conversionTime}ms`
+                `Converted ${sourceFormat.toUpperCase()} to ${targetFormat.toUpperCase()} in ${result.metadata.conversionTime}ms`,
             );
         } else {
             vscode.window.showErrorMessage(`Conversion failed: ${result.error}`);
@@ -109,7 +110,7 @@ export class DataConverterPanel {
     private _getWebviewContent(): string {
         const nonce = this.getNonce();
         const webview = this._panel.webview;
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -525,10 +526,14 @@ export class DataConverterPanel {
         }
 
         function showError(message) {
-            outputContainer.innerHTML = \`<div class="error">❌ \${message}</div>\`;
+            const error = document.createElement('div');
+            error.className = 'error';
+            error.textContent = '❌ ' + String(message || 'Conversion failed');
+            outputContainer.replaceChildren(error);
             downloadBtn.style.display = 'none';
             copyBtn.style.display = 'none';
             currentOutput = '';
+            outputSize.textContent = '0 B';
         }
 
         function showOutput(output) {

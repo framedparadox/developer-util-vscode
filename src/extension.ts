@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
     const refreshCommand = vscode.commands.registerCommand('devx.refreshTools', () => {
         devxToolsProvider.refresh();
         if (getGeneralPreferences(context).showRefreshMessage) {
-            vscode.window.showInformationMessage('DevX tools refreshed');
+            vscode.window.showInformationMessage('Developer utilities refreshed');
         }
     });
 
@@ -100,7 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
         visualizerFromFileCommand,
         dataConverterCommand,
         configureSidebarCommand,
-        refreshCommand
+        refreshCommand,
     );
 }
 

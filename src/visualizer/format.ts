@@ -19,11 +19,7 @@ const languageToFormat: Record<string, ConversionFormat> = {
     raml: 'raml',
 };
 
-export function detectDataFormat(
-    content: string,
-    fileName?: string,
-    languageId?: string
-): ConversionFormat | null {
+export function detectDataFormat(content: string, fileName?: string, languageId?: string): ConversionFormat | null {
     const extension = fileName?.split('.').pop()?.toLowerCase();
     if (extension && extensionToFormat[extension]) {
         return extensionToFormat[extension];

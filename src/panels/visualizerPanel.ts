@@ -6,6 +6,8 @@ import { DataTransformer } from '../visualizer/transformer';
 import { ConversionFormat, Parser, VisualizerGraphData } from '../visualizer/types';
 
 const RENDER_LIMIT = 1500;
+const MAX_INPUT_BYTES = 10 * 1024 * 1024;
+const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
 
 interface VisualizerContext {
     mode: 'file' | 'sidebar';
@@ -50,7 +52,7 @@ export class VisualizerPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -71,8 +73,8 @@ export class VisualizerPanel {
                 {
                     enableScripts: true,
                     retainContextWhenHidden: true,
-                    localResourceRoots: [extensionUri],
-                }
+                    localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
+                },
             );
 
             panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'visualizer.svg');
@@ -113,8 +115,8 @@ export class VisualizerPanel {
                 {
                     enableScripts: true,
                     retainContextWhenHidden: true,
-                    localResourceRoots: [extensionUri],
-                }
+                    localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
+                },
             );
 
             panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'visualizer.svg');
@@ -127,13 +129,21 @@ export class VisualizerPanel {
         }
     }
 
-    private handleParse(content: string, fileName?: string, fileType?: string) {
+    private handleParse(content: unknown, fileName?: string, fileType?: string) {
         const startedAt = Date.now();
-        const source = content ?? '';
+        if (typeof content !== 'string') {
+            this.postParseError('Visualization input must be text.');
+            return;
+        }
+        const source = content;
         const trimmedContent = source.trim();
 
         if (!trimmedContent) {
             this.postParseError('No data to visualize.');
+            return;
+        }
+        if (Buffer.byteLength(source, 'utf8') > MAX_INPUT_BYTES) {
+            this.postParseError('Visualization input exceeds the 10 MB limit.');
             return;
         }
 
@@ -146,8 +156,8 @@ export class VisualizerPanel {
         try {
             const parser = this.getParser(format);
             const parsedData = parser.parse(source);
-            const graph = DataTransformer.jsonToGraph(parsedData);
-            const exceededRenderLimit = graph.totalNodes > RENDER_LIMIT;
+            const graph = DataTransformer.jsonToGraph(parsedData, RENDER_LIMIT);
+            const exceededRenderLimit = graph.exceededLimit;
             const graphData: VisualizerGraphData = {
                 nodes: exceededRenderLimit ? [] : graph.nodes,
                 edges: exceededRenderLimit ? [] : graph.edges,
@@ -182,12 +192,20 @@ export class VisualizerPanel {
     }
 
     private async handleExportImage(svg: string | undefined, fileName: string | undefined) {
-        if (!svg) {
+        if (!svg || !/^\s*<svg(?:\s|>)/i.test(svg)) {
             vscode.window.showErrorMessage('No visualization is available to export.');
             return;
         }
+        if (Buffer.byteLength(svg, 'utf8') > MAX_EXPORT_BYTES) {
+            vscode.window.showErrorMessage('The exported SVG exceeds the 10 MB limit.');
+            return;
+        }
 
-        const baseName = (fileName || 'data-visualizer').replace(/\.[^/.]+$/, '');
+        const baseName =
+            (fileName || 'data-visualizer')
+                .replace(/\.[^/.]+$/, '')
+                .replace(/[^a-zA-Z0-9._-]+/g, '-')
+                .replace(/^-+|-+$/g, '') || 'data-visualizer';
         const target = await vscode.window.showSaveDialog({
             defaultUri: vscode.Uri.file(`${baseName}-visualization.svg`),
             filters: {
@@ -237,9 +255,7 @@ export class VisualizerPanel {
     private _getWebviewContent(): string {
         const nonce = this.getNonce();
         const webview = this._panel.webview;
-        const d3Uri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this._extensionUri, 'node_modules', 'd3', 'dist', 'd3.min.js')
-        );
+        const d3Uri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'd3.min.js'));
         const csp = `default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}';`;
 
         return `<!DOCTYPE html>
@@ -285,7 +301,7 @@ export class VisualizerPanel {
             display: none;
         }
 
-        .monaco-container {
+        .editor-container {
             flex: 1;
             min-height: 0;
             padding: 8px;
@@ -880,7 +896,7 @@ export class VisualizerPanel {
 <body>
     <div class="container">
         <div class="editor-pane" id="editorPane">
-            <div class="monaco-container">
+            <div class="editor-container">
                 <textarea id="editor" placeholder="Paste JSON, YAML, RAML, XML, or CSV here..."></textarea>
             </div>
             <div class="status-bar">

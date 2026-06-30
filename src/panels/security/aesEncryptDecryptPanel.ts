@@ -2,10 +2,18 @@ import * as crypto from 'crypto';
 import * as http from 'http';
 import * as https from 'https';
 import * as vscode from 'vscode';
-import { AesDataEncoding, AesOperationSettings, decodeData, decryptAes, encodeData, encryptAes } from '../../security/aesEngine';
+import {
+    AesDataEncoding,
+    AesOperationSettings,
+    decodeData,
+    decryptAes,
+    encodeData,
+    encryptAes,
+} from '../../security/aesEngine';
 
 type AesOperation = 'encrypt' | 'decrypt';
 type AesSourceType = 'text' | 'file' | 'url';
+const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 
 interface ProcessAesMessage {
     command: 'processAes';
@@ -36,7 +44,7 @@ export class AesEncryptDecryptPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -132,22 +140,37 @@ export class AesEncryptDecryptPanel {
     }
 
     private async resolveInput(message: ProcessAesMessage): Promise<Buffer> {
+        let input: Buffer;
         switch (message.sourceType) {
             case 'text':
-                return decodeData(message.inputText ?? '', message.inputEncoding, 'Input');
+                if (Buffer.byteLength(message.inputText ?? '', 'utf8') > MAX_INPUT_BYTES) {
+                    throw new Error('AES input exceeds the 10 MB limit.');
+                }
+                input = decodeData(message.inputText ?? '', message.inputEncoding, 'Input');
+                break;
             case 'file':
                 if (!message.fileDataBase64) {
                     throw new Error('Please provide a file input.');
                 }
-                return Buffer.from(message.fileDataBase64, 'base64');
+                if (message.fileDataBase64.length > Math.ceil((MAX_INPUT_BYTES * 4) / 3) + 4) {
+                    throw new Error('AES input exceeds the 10 MB limit.');
+                }
+                input = decodeData(message.fileDataBase64, 'base64', 'File input');
+                break;
             case 'url':
                 if (!message.url?.trim()) {
                     throw new Error('Please provide a URL.');
                 }
-                return this.fetchUrlContent(message.url.trim());
+                input = await this.fetchUrlContent(message.url.trim());
+                break;
             default:
                 throw new Error(`Unsupported input type: ${message.sourceType}`);
         }
+
+        if (input.length > MAX_INPUT_BYTES) {
+            throw new Error('AES input exceeds the 10 MB limit.');
+        }
+        return input;
     }
 
     private async fetchUrlContent(rawUrl: string, redirectCount = 0): Promise<Buffer> {
@@ -164,6 +187,9 @@ export class AesEncryptDecryptPanel {
 
         if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
             throw new Error('Only HTTP/HTTPS URLs are supported.');
+        }
+        if (parsedUrl.username || parsedUrl.password) {
+            throw new Error('URLs containing embedded credentials are not supported.');
         }
 
         return new Promise<Buffer>((resolve, reject) => {
@@ -185,9 +211,16 @@ export class AesEncryptDecryptPanel {
                             reject(new Error(`Redirect (${statusCode}) received without a location header.`));
                             return;
                         }
-                        const redirectUrl = new URL(location, parsedUrl).toString();
+                        const redirectUrl = new URL(location, parsedUrl);
+                        if (parsedUrl.protocol === 'https:' && redirectUrl.protocol !== 'https:') {
+                            response.resume();
+                            reject(new Error('Refusing to follow an HTTPS redirect to an insecure URL.'));
+                            return;
+                        }
                         response.resume();
-                        this.fetchUrlContent(redirectUrl, redirectCount + 1).then(resolve).catch(reject);
+                        this.fetchUrlContent(redirectUrl.toString(), redirectCount + 1)
+                            .then(resolve)
+                            .catch(reject);
                         return;
                     }
 
@@ -197,14 +230,29 @@ export class AesEncryptDecryptPanel {
                         return;
                     }
 
+                    const declaredLength = Number(response.headers['content-length']);
+                    if (Number.isFinite(declaredLength) && declaredLength > MAX_INPUT_BYTES) {
+                        response.resume();
+                        reject(new Error('URL content exceeds the 10 MB limit.'));
+                        return;
+                    }
+
                     const chunks: Buffer[] = [];
+                    let receivedBytes = 0;
                     response.on('data', (chunk: Buffer | string) => {
-                        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+                        receivedBytes += buffer.length;
+                        if (receivedBytes > MAX_INPUT_BYTES) {
+                            response.destroy();
+                            reject(new Error('URL content exceeds the 10 MB limit.'));
+                            return;
+                        }
+                        chunks.push(buffer);
                     });
                     response.on('end', () => {
                         resolve(Buffer.concat(chunks));
                     });
-                }
+                },
             );
 
             request.setTimeout(10000, () => {
@@ -221,7 +269,7 @@ export class AesEncryptDecryptPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
 
         return `<!DOCTYPE html>
 <html lang="en">

@@ -37,7 +37,7 @@ export class UUIDPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -165,7 +165,8 @@ export class UUIDPanel {
 
         const randBytes = crypto.randomBytes(10);
         // version nibble (7) occupies top 4 bits of the 3rd group
-        const ver = ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
+        const ver =
+            ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
         // variant bits (10xx) for the 4th group
         randBytes[2] = (randBytes[2] & 0x3f) | 0x80;
         const variant = randBytes.toString('hex', 2, 4);
@@ -188,7 +189,7 @@ export class UUIDPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>

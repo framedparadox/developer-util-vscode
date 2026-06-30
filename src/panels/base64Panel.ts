@@ -1,6 +1,31 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
+export const MAX_BASE64_INPUT_BYTES = 10 * 1024 * 1024;
+
+export function decodeBase64(value: string): Buffer {
+    const normalized = value.replace(/\s+/g, '');
+    if (!normalized) {
+        return Buffer.alloc(0);
+    }
+    if (
+        normalized.length > Math.ceil((MAX_BASE64_INPUT_BYTES * 4) / 3) + 4 ||
+        normalized.length % 4 === 1 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) ||
+        normalized.slice(0, -2).includes('=')
+    ) {
+        throw new Error('Input must be valid Base64 data.');
+    }
+
+    const unpadded = normalized.replace(/=+$/, '');
+    const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, '=');
+    const decoded = Buffer.from(padded, 'base64');
+    if (decoded.toString('base64').replace(/=+$/, '') !== unpadded) {
+        throw new Error('Input must be valid Base64 data.');
+    }
+    return decoded;
+}
+
 export class Base64Panel {
     public static currentPanel: Base64Panel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -23,7 +48,7 @@ export class Base64Panel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -49,8 +74,14 @@ export class Base64Panel {
             let encoded: string;
             if (isFile) {
                 // Text is already base64 from file reader
+                if (text.length > Math.ceil((MAX_BASE64_INPUT_BYTES * 4) / 3) + 4) {
+                    throw new Error('File exceeds the 10 MB limit.');
+                }
                 encoded = text;
             } else {
+                if (Buffer.byteLength(text, 'utf8') > MAX_BASE64_INPUT_BYTES) {
+                    throw new Error('Text exceeds the 10 MB limit.');
+                }
                 encoded = Buffer.from(text, 'utf8').toString('base64');
             }
             this._panel.webview.postMessage({
@@ -67,7 +98,7 @@ export class Base64Panel {
 
     private handleDecode(text: string, isFile: boolean = false) {
         try {
-            const decoded = Buffer.from(text, 'base64').toString('utf8');
+            const decoded = decodeBase64(text).toString('utf8');
             this._panel.webview.postMessage({
                 command: 'decodeResult',
                 result: decoded,
@@ -95,7 +126,7 @@ export class Base64Panel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -318,6 +349,7 @@ export class Base64Panel {
                 const fileMode = document.getElementById('fileMode');
                 const textModeBtn = document.getElementById('textModeBtn');
                 const fileModeBtn = document.getElementById('fileModeBtn');
+                const maxFileBytes = ${MAX_BASE64_INPUT_BYTES};
 
                 let currentMode = 'text';
                 let currentFile = null;
@@ -375,6 +407,13 @@ export class Base64Panel {
                 });
 
                 function handleFile(file) {
+                    if (file.size > maxFileBytes) {
+                        currentFile = null;
+                        fileInput.value = '';
+                        fileInfo.textContent = '';
+                        showError('File exceeds the 10 MB limit.');
+                        return;
+                    }
                     currentFile = file;
                     fileInfo.textContent = \`Selected: \${file.name} (\${formatFileSize(file.size)})\`;
                 }
