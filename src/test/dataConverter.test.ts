@@ -418,3 +418,28 @@ suite('DataConverter – edge cases', () => {
         assert.match(result.error ?? '', /Circular references/);
     });
 });
+
+suite('DataConverter – prototype-polluting keys', () => {
+    const converter = new DataConverter();
+
+    test('preserves a __proto__ key from YAML instead of dropping it', () => {
+        const result = converter.convert('__proto__:\n  polluted: true\na: 1', 'yaml', 'json');
+        assert.ok(result.success, result.error);
+        const parsed = JSON.parse(result.output!);
+        // The data must survive the round-trip as an own property.
+        assert.ok(Object.prototype.hasOwnProperty.call(parsed, '__proto__'));
+        assert.strictEqual(parsed.a, 1);
+    });
+
+    test('does not pollute the global Object prototype', () => {
+        converter.convert('__proto__:\n  polluted: true', 'yaml', 'json');
+        assert.strictEqual(({} as Record<string, unknown>).polluted, undefined);
+    });
+
+    test('preserves a __proto__ key when converting YAML → YAML', () => {
+        const result = converter.convert('__proto__:\n  nested: value', 'yaml', 'yaml');
+        assert.ok(result.success, result.error);
+        assert.match(result.output!, /__proto__:/);
+        assert.match(result.output!, /nested: value/);
+    });
+});

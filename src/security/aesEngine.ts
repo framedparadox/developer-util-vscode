@@ -275,12 +275,13 @@ function resolveDerivedKeyMaterial(settings: AesOperationSettings, salt: Buffer 
     const keyBytes = settings.keySize / 8;
     const ivBytes = AES_BLOCK_SIZE;
     const totalBytes = keyBytes + ivBytes;
-    const iterations =
-        settings.customIteration || settings.keyType === 'custom'
-            ? settings.iteration
-            : settings.keyType === 'PBKDF2'
-              ? 10000
-              : 1;
+    // This helper is only reached for derived key types (PBKDF2/EvpKDF); custom
+    // keys resolve their material elsewhere and never reach here.
+    const iterations = settings.customIteration
+        ? settings.iteration
+        : settings.keyType === 'PBKDF2'
+          ? 10000
+          : 1;
     const digest = HASH_ALGORITHM[settings.hash];
     const passphrase = Buffer.from(settings.passphrase, 'utf8');
     const saltBuffer = salt ?? Buffer.alloc(0);

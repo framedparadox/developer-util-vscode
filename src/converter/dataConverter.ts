@@ -128,6 +128,21 @@ export class DataConverter implements IDataConverter {
             const normalized: any = {};
 
             for (const key of Object.keys(data)) {
+                // Guard against prototype-polluting keys (e.g. a "__proto__"
+                // key produced by js-yaml). A plain `normalized[key] = value`
+                // assignment with key === '__proto__' writes to the object's
+                // prototype slot instead of creating an own property, which
+                // silently drops the data from the converted output.
+                if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                    Object.defineProperty(normalized, key, {
+                        value: this.normalizeData(data[key], ancestors),
+                        enumerable: true,
+                        writable: true,
+                        configurable: true,
+                    });
+                    continue;
+                }
+
                 const value = data[key];
 
                 if (value === null || value === undefined) {

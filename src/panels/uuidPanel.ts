@@ -98,8 +98,28 @@ export class UUIDPanel {
     }
 
     private generateBulk(count: number, type: string) {
+        // Never trust the count coming from the webview: a crafted or buggy
+        // message could send a non-integer or an enormous value and freeze the
+        // extension host. Clamp to the same 1–1000 range the UI enforces.
+        if (!Number.isInteger(count) || count < 1) {
+            this._panel.webview.postMessage({
+                command: 'error',
+                message: 'Bulk count must be an integer between 1 and 1000.',
+            });
+            return;
+        }
+        const safeCount = Math.min(count, 1000);
+
+        if (type !== 'v1' && type !== 'v4' && type !== 'v7') {
+            this._panel.webview.postMessage({
+                command: 'error',
+                message: `Unsupported UUID type: ${String(type)}`,
+            });
+            return;
+        }
+
         const uuids: string[] = [];
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < safeCount; i++) {
             switch (type) {
                 case 'v1':
                     uuids.push(this.uuidv1());
@@ -115,7 +135,7 @@ export class UUIDPanel {
         this._panel.webview.postMessage({
             command: 'bulkResult',
             uuids: uuids.join('\n'),
-            count: count,
+            count: safeCount,
             type: type,
         });
     }
@@ -332,6 +352,13 @@ export class UUIDPanel {
                     margin: 10px 0;
                     padding: 8px;
                 }
+                .error {
+                    color: var(--vscode-errorForeground);
+                    margin: 10px 0;
+                    padding: 8px;
+                    background-color: var(--vscode-inputValidation-errorBackground);
+                    border: 1px solid var(--vscode-inputValidation-errorBorder);
+                }
             </style>
         </head>
         <body>
@@ -471,6 +498,9 @@ export class UUIDPanel {
                             bulkOutput.value = message.uuids;
                             showSuccess(\`Generated \${message.count} UUIDs (\${message.type})\`);
                             break;
+                        case 'error':
+                            showError(message.message);
+                            break;
                     }
                 });
 
@@ -480,6 +510,11 @@ export class UUIDPanel {
                     setTimeout(() => {
                         messageDiv.textContent = '';
                     }, 3000);
+                }
+
+                function showError(msg) {
+                    messageDiv.className = 'error';
+                    messageDiv.textContent = msg || 'An error occurred.';
                 }
             </script>
         </body>

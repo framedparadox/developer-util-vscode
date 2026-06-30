@@ -15,6 +15,50 @@ type AesOperation = 'encrypt' | 'decrypt';
 type AesSourceType = 'text' | 'file' | 'url';
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 
+/**
+ * Returns true for hostnames that resolve to loopback, link-local, or private
+ * network ranges that a URL fetch must never reach (SSRF protection). Matches on
+ * the URL literal only — it does not perform DNS resolution, so it catches the
+ * common attack vectors (localhost, metadata IP, RFC1918 literals) without a
+ * blocking lookup.
+ */
+function isBlockedHost(hostname: string): boolean {
+    // URL hostnames keep IPv6 addresses wrapped in brackets.
+    const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+
+    if (host === 'localhost' || host.endsWith('.localhost')) {
+        return true;
+    }
+
+    // IPv6 loopback (::1) and unique-local / link-local ranges (fc00::/7, fe80::/10).
+    if (host === '::1' || host === '::' || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) {
+        return true;
+    }
+
+    // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1) — strip the prefix and re-check.
+    const mapped = host.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+    const ipv4 = mapped ? mapped[1] : host;
+
+    const octets = ipv4.split('.');
+    if (octets.length === 4 && octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)) {
+        const [a, b] = octets.map(Number);
+        if (a === 127 || a === 0 || a === 10) {
+            return true; // loopback, "this host", 10.0.0.0/8
+        }
+        if (a === 169 && b === 254) {
+            return true; // link-local incl. 169.254.169.254 metadata endpoint
+        }
+        if (a === 172 && b >= 16 && b <= 31) {
+            return true; // 172.16.0.0/12
+        }
+        if (a === 192 && b === 168) {
+            return true; // 192.168.0.0/16
+        }
+    }
+
+    return false;
+}
+
 interface ProcessAesMessage {
     command: 'processAes';
     operation: AesOperation;
@@ -190,6 +234,12 @@ export class AesEncryptDecryptPanel {
         }
         if (parsedUrl.username || parsedUrl.password) {
             throw new Error('URLs containing embedded credentials are not supported.');
+        }
+        // Block requests to loopback, link-local, and private network hosts to
+        // avoid SSRF against local services or the cloud metadata endpoint. This
+        // runs again on every redirect hop because fetchUrlContent recurses.
+        if (isBlockedHost(parsedUrl.hostname)) {
+            throw new Error('Refusing to fetch URLs that target local or private network addresses.');
         }
 
         return new Promise<Buffer>((resolve, reject) => {
