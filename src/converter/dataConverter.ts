@@ -226,9 +226,10 @@ export class DataConverter implements IDataConverter {
             return `${indent}<${rootName}/>`;
         }
 
+        const usedTags = new Set<string>();
         const children = keys
             .map((key) => {
-                const sanitizedKey = this.sanitizeXmlTag(key);
+                const sanitizedKey = this.sanitizeXmlTag(key, usedTags);
                 return this.jsonToXml(obj[key], sanitizedKey, indentLevel + 1);
             })
             .join('\n');
@@ -251,14 +252,27 @@ export class DataConverter implements IDataConverter {
     /**
      * Sanitize tag names for XML (remove invalid characters)
      */
-    private sanitizeXmlTag(tag: string): string {
+    private sanitizeXmlTag(tag: string, usedTags: Set<string>): string {
         // XML tag names must start with letter or underscore
         // and can contain letters, digits, hyphens, underscores, and periods
         let sanitized = tag
             .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace invalid chars with underscore
             .replace(/^[^a-zA-Z_]/, '_$&'); // Ensure starts with letter or underscore
 
-        return sanitized || 'element';
+        if (!sanitized) {
+            sanitized = 'element';
+        }
+        if (/^xml/i.test(sanitized)) {
+            sanitized = `_${sanitized}`;
+        }
+
+        let candidate = sanitized;
+        let suffix = 2;
+        while (usedTags.has(candidate)) {
+            candidate = `${sanitized}_${suffix++}`;
+        }
+        usedTags.add(candidate);
+        return candidate;
     }
 
     /**

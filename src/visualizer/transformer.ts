@@ -8,6 +8,7 @@ interface GraphBuildState {
     nodes: GraphNode[];
     edges: GraphEdge[];
     maxDepth: number;
+    ancestors: WeakSet<object>;
 }
 
 interface GraphBuildResult {
@@ -36,6 +37,7 @@ export class DataTransformer {
             nodes: [],
             edges: [],
             maxDepth: 0,
+            ancestors: new WeakSet<object>(),
         };
 
         try {
@@ -65,9 +67,30 @@ export class DataTransformer {
     /**
      * Convert any JSON-compatible object to VisualizerNode tree
      */
-    static jsonToNodes(obj: any, key: string = 'Root', path: string = '$', depth: number = 0): VisualizerNode {
+    static jsonToNodes(
+        obj: any,
+        key: string = 'Root',
+        path: string = '$',
+        depth: number = 0,
+        ancestors: WeakSet<object> = new WeakSet(),
+    ): VisualizerNode {
         const nodeType = this.identifyNodeType(obj);
         const id = path === '$' ? 'root' : path;
+
+        if ((nodeType === 'object' || nodeType === 'array') && ancestors.has(obj)) {
+            return {
+                id,
+                label: `${key}: [Circular]`,
+                type: 'property',
+                value: '[Circular]',
+                metadata: {
+                    depth,
+                    dataType: 'circular',
+                    isCollapsed: false,
+                    path,
+                },
+            };
+        }
 
         if (nodeType === 'object') {
             const keys = Object.keys(obj);
@@ -76,11 +99,15 @@ export class DataTransformer {
                     ? `Root Object (${keys.length} ${keys.length === 1 ? 'property' : 'properties'})`
                     : `${key} (${keys.length} ${keys.length === 1 ? 'prop' : 'props'})`;
 
+            ancestors.add(obj);
+            const children = keys.map((k) => this.jsonToNodes(obj[k], k, `${path}.${k}`, depth + 1, ancestors));
+            ancestors.delete(obj);
+
             return {
                 id,
                 label,
                 type: 'object',
-                children: keys.map((k) => this.jsonToNodes(obj[k], k, `${path}.${k}`, depth + 1)),
+                children,
                 metadata: {
                     depth,
                     dataType: 'object',
@@ -93,13 +120,17 @@ export class DataTransformer {
         if (nodeType === 'array') {
             const label = `${key} [${obj.length} ${obj.length === 1 ? 'item' : 'items'}]`;
 
+            ancestors.add(obj);
+            const children = obj.map((item: any, idx: number) =>
+                this.jsonToNodes(item, `[${idx}]`, `${path}[${idx}]`, depth + 1, ancestors),
+            );
+            ancestors.delete(obj);
+
             return {
                 id,
                 label,
                 type: 'array',
-                children: obj.map((item: any, idx: number) =>
-                    this.jsonToNodes(item, `[${idx}]`, `${path}[${idx}]`, depth + 1),
-                ),
+                children,
                 metadata: {
                     depth,
                     dataType: 'array',
@@ -205,11 +236,40 @@ export class DataTransformer {
         }
 
         const id = `node-${state.nextNodeId++}`;
+        if (value !== null && typeof value === 'object' && state.ancestors.has(value)) {
+            const circularNodeType = this.identifyGraphNodeType('[Circular]');
+            const circularRows: GraphRow[] = [
+                {
+                    key: null,
+                    value: '[Circular]',
+                    valueType: 'string',
+                    isReference: false,
+                },
+            ];
+            const dimensions = this.calculateGraphNodeSize(this.formatGraphTitle(key, '[Circular]', circularNodeType), circularRows);
+            state.nodes.push({
+                id,
+                title: this.formatGraphTitle(key, '[Circular]', circularNodeType),
+                type: circularNodeType,
+                rows: circularRows,
+                path,
+                depth,
+                childCount: 0,
+                width: dimensions.width,
+                height: dimensions.height,
+                collapsed: false,
+            });
+            return id;
+        }
+
         const nodeType = this.identifyGraphNodeType(value);
         const childEntries = this.getChildEntries(value);
         const rows: GraphRow[] = [];
 
         state.maxDepth = Math.max(state.maxDepth, depth);
+        if (value !== null && typeof value === 'object') {
+            state.ancestors.add(value);
+        }
 
         if (nodeType === 'value') {
             rows.push({
@@ -291,6 +351,10 @@ export class DataTransformer {
             height: dimensions.height,
             collapsed: false,
         });
+
+        if (value !== null && typeof value === 'object') {
+            state.ancestors.delete(value);
+        }
 
         return id;
     }

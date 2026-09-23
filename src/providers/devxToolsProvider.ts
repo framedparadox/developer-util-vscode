@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
+import { UTILITY_TOOLS } from '../utilities/registry';
 
 // ─── Configure Sidebar Panel ───────────────────────────────────────────────
 export class ConfigSidebarPanel {
@@ -46,6 +47,15 @@ export class ConfigSidebarPanel {
             null,
             this._disposables,
         );
+    }
+
+    private escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     public static render(context: vscode.ExtensionContext, onRefresh?: () => void) {
@@ -121,10 +131,10 @@ export class ConfigSidebarPanel {
         const toolRows = ALL_TOOLS.map((t) => {
             const checked = visibility[t.label] !== false ? 'checked' : '';
             return `<label class="tool-row">
-                <span class="switch"><input type="checkbox" data-tool="${t.label}" ${checked}><span class="slider"></span></span>
+                <span class="switch"><input type="checkbox" data-tool="${this.escapeHtml(t.label)}" ${checked}><span class="slider"></span></span>
                 <span class="tool-meta">
-                    <span class="tool-name">${t.label}</span>
-                    <span class="tool-desc">${t.description}</span>
+                    <span class="tool-name">${this.escapeHtml(t.label)}</span>
+                    <span class="tool-desc">${this.escapeHtml(t.description)}</span>
                 </span>
             </label>`;
         }).join('');
@@ -619,6 +629,13 @@ export const ALL_TOOLS: SidebarTool[] = [
         icon: 'converter.svg',
         defaultVisible: false,
     },
+    ...UTILITY_TOOLS.map((tool) => ({
+        label: tool.label,
+        description: tool.description,
+        command: tool.command,
+        icon: tool.icon,
+        defaultVisible: tool.defaultVisible,
+    })),
 ];
 
 function buildVisibilityDefaults(): { [label: string]: boolean } {
@@ -686,6 +703,7 @@ interface SidebarViewItem {
 export class DevXToolsProvider implements vscode.WebviewViewProvider {
     private readonly _extensionUri: vscode.Uri;
     private readonly _context: vscode.ExtensionContext;
+    private readonly _disposables: vscode.Disposable[] = [];
     private _view?: vscode.WebviewView;
 
     constructor(context: vscode.ExtensionContext) {
@@ -708,20 +726,29 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtml(webviewView.webview);
 
-        webviewView.webview.onDidReceiveMessage(async (message) => {
-            switch (message.command) {
-                case 'runTool':
-                    if (
-                        typeof message.toolCommand === 'string' &&
-                        (message.toolCommand === 'devx.configureSidebar' ||
-                            ALL_TOOLS.some((tool) => tool.command === message.toolCommand))
-                    ) {
-                        await vscode.commands.executeCommand(message.toolCommand);
-                    }
-                    return;
-                case 'refresh':
-                    this.refresh();
-                    return;
+        webviewView.webview.onDidReceiveMessage(
+            async (message) => {
+                switch (message.command) {
+                    case 'runTool':
+                        if (
+                            typeof message.toolCommand === 'string' &&
+                            (message.toolCommand === 'devx.configureSidebar' ||
+                                ALL_TOOLS.some((tool) => tool.command === message.toolCommand))
+                        ) {
+                            await vscode.commands.executeCommand(message.toolCommand);
+                        }
+                        return;
+                    case 'refresh':
+                        this.refresh();
+                        return;
+                }
+            },
+            undefined,
+            this._disposables,
+        );
+        webviewView.onDidDispose(() => {
+            while (this._disposables.length) {
+                this._disposables.pop()?.dispose();
             }
         });
     }
@@ -831,6 +858,16 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
         height: 100%;
         min-height: 0;
         gap: 8px;
+    }
+
+    .tool-search {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        border: 1px solid var(--vscode-input-border);
+        background: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        font: 12px var(--vscode-font-family);
     }
 
     .tool-list-main {
@@ -1007,6 +1044,7 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
 </head>
 <body class="${this.escapeHtml(modeClass)}">
     <div class="sidebar-root">
+        <input id="toolSearch" class="tool-search" type="search" placeholder="Filter tools" aria-label="Filter tools" />
         <div class="tool-list-main">
             ${mainRows}
         </div>
@@ -1041,6 +1079,15 @@ export class DevXToolsProvider implements vscode.WebviewViewProvider {
         if (typeof state.activeCommand === 'string' && state.activeCommand.length > 0) {
             setActive(state.activeCommand);
         }
+
+        const toolSearch = document.getElementById('toolSearch');
+        toolSearch.addEventListener('input', () => {
+            const query = toolSearch.value.trim().toLowerCase();
+            document.querySelectorAll('.tool-list-main .tool-button').forEach((button) => {
+                const title = (button.getAttribute('title') || '').toLowerCase();
+                button.hidden = query.length > 0 && !title.includes(query);
+            });
+        });
     </script>
 </body>
 </html>`;

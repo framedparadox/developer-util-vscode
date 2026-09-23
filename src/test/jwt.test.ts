@@ -34,10 +34,12 @@ suite('JWTPanel – decodeJWT()', () => {
         assert.strictEqual(result.signature, 'mysignature');
     });
 
-    test('no exp claim: isExpired=false and expirationInfo is empty', () => {
+    test('no exp claim: isExpired=false and label is UNVERIFIED', () => {
         const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { sub: '123' });
         const result = decodeJWT(token);
         assert.strictEqual(result.isExpired, false);
+        assert.strictEqual(result.isNotYetValid, false);
+        assert.strictEqual(result.validityLabel, 'UNVERIFIED');
         assert.strictEqual(result.expirationInfo, '');
     });
 
@@ -46,7 +48,8 @@ suite('JWTPanel – decodeJWT()', () => {
         const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { sub: '1', exp: futureExp });
         const result = decodeJWT(token);
         assert.strictEqual(result.isExpired, false);
-        assert.ok(result.expirationInfo.includes('Valid'));
+        assert.strictEqual(result.validityLabel, 'NOT EXPIRED');
+        assert.ok(result.expirationInfo.includes('Expires:'));
     });
 
     test('past exp claim: isExpired=true', () => {
@@ -54,7 +57,8 @@ suite('JWTPanel – decodeJWT()', () => {
         const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { sub: '1', exp: pastExp });
         const result = decodeJWT(token);
         assert.strictEqual(result.isExpired, true);
-        assert.ok(result.expirationInfo.includes('EXPIRED'));
+        assert.strictEqual(result.validityLabel, 'EXPIRED');
+        assert.ok(result.expirationInfo.includes('Expires:'));
     });
 
     test('expirationInfo mentions the expiry date', () => {
@@ -82,6 +86,20 @@ suite('JWTPanel – decodeJWT()', () => {
         const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { sub: '1', nbf });
         const result = decodeJWT(token);
         assert.strictEqual((result.payload as any).nbf, nbf);
+        assert.strictEqual(result.isNotYetValid, false);
+    });
+
+    test('future nbf claim: isNotYetValid=true', () => {
+        const nbf = Math.floor(Date.now() / 1000) + 3600;
+        const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { sub: '1', nbf });
+        const result = decodeJWT(token);
+        assert.strictEqual(result.isNotYetValid, true);
+        assert.strictEqual(result.validityLabel, 'NOT YET VALID');
+    });
+
+    test('throws when the nbf claim is not numeric', () => {
+        const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { nbf: 'later' });
+        assert.throws(() => decodeJWT(token), /nbf claim/);
     });
 
     test('decodes payload with nested claims object', () => {

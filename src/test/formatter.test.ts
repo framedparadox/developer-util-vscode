@@ -3,142 +3,7 @@
  * Pure functions only – no VS Code dependency.
  */
 import * as assert from 'assert';
-
-// ─── Pure logic (mirrors FormatterPanel private methods) ─────────────────────
-
-function formatXML(xml: string, indent: number): string {
-    const PADDING = ' '.repeat(indent);
-    const reg = /(>)(<)(\/*)/g;
-    let formatted = '';
-    let pad = 0;
-
-    xml = xml.replace(reg, '$1\r\n$2$3');
-
-    xml.split('\r\n').forEach((node) => {
-        let padDelta = 0;
-        if (node.match(/.+<\/\w[^>]*>$/)) {
-            padDelta = 0;
-        } else if (node.match(/^<\/\w/) && pad > 0) {
-            pad -= 1;
-        } else if (node.match(/^<\w[^>]*[^\/]>.*$/)) {
-            padDelta = 1;
-        } else {
-            padDelta = 0;
-        }
-
-        formatted += PADDING.repeat(pad) + node + '\r\n';
-        pad += padDelta;
-    });
-
-    return formatted.trim();
-}
-
-function formatJSON(text: string, indent: number): string {
-    const parsed = JSON.parse(text);
-    return JSON.stringify(parsed, null, indent);
-}
-
-function minifyJSON(text: string): string {
-    return JSON.stringify(JSON.parse(text));
-}
-
-function minifyXML(text: string): string {
-    return text
-        .replace(/>\s+</g, '><')
-        .replace(/^\s+|\s+$/gm, '')
-        .trim();
-}
-
-function formatSQL(sql: string): string {
-    const keywords = [
-        'SELECT',
-        'FROM',
-        'WHERE',
-        'JOIN',
-        'LEFT JOIN',
-        'RIGHT JOIN',
-        'INNER JOIN',
-        'OUTER JOIN',
-        'ON',
-        'AND',
-        'OR',
-        'ORDER BY',
-        'GROUP BY',
-        'HAVING',
-        'LIMIT',
-        'OFFSET',
-        'INSERT',
-        'INTO',
-        'VALUES',
-        'UPDATE',
-        'SET',
-        'DELETE',
-        'CREATE',
-        'TABLE',
-        'ALTER',
-        'DROP',
-        'AS',
-        'DISTINCT',
-        'UNION',
-        'CASE',
-        'WHEN',
-        'THEN',
-        'ELSE',
-        'END',
-    ];
-
-    let formatted = sql;
-    keywords.forEach((keyword) => {
-        const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
-        formatted = formatted.replace(regex, `\n${keyword}`);
-    });
-
-    formatted = formatted
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .join('\n');
-
-    const lines = formatted.split('\n');
-    let indentLevel = 0;
-    const indentedLines = lines.map((line) => {
-        const upperLine = line.toUpperCase();
-        if (
-            upperLine.startsWith('SELECT') ||
-            upperLine.startsWith('FROM') ||
-            upperLine.startsWith('WHERE') ||
-            upperLine.startsWith('ORDER BY') ||
-            upperLine.startsWith('GROUP BY') ||
-            upperLine.startsWith('HAVING') ||
-            upperLine.startsWith('UNION') ||
-            upperLine.startsWith('INSERT') ||
-            upperLine.startsWith('UPDATE') ||
-            upperLine.startsWith('DELETE') ||
-            upperLine.startsWith('CREATE') ||
-            upperLine.startsWith('ALTER') ||
-            upperLine.startsWith('DROP')
-        ) {
-            indentLevel = 0;
-        } else if (upperLine.includes('JOIN')) {
-            indentLevel = 1;
-        } else if (
-            upperLine.startsWith('AND') ||
-            upperLine.startsWith('OR') ||
-            upperLine.startsWith('ON') ||
-            upperLine.startsWith('SET') ||
-            upperLine.startsWith('VALUES') ||
-            upperLine.startsWith('WHEN') ||
-            upperLine.startsWith('THEN') ||
-            upperLine.startsWith('ELSE') ||
-            upperLine.startsWith('END')
-        ) {
-            indentLevel = 1;
-        }
-        return '  '.repeat(indentLevel) + line;
-    });
-
-    return indentedLines.join('\n');
-}
+import { formatJSON, formatSQL, formatXML, minifyJSON, minifyXML } from '../formatter/textFormat';
 
 // ─── formatJSON ───────────────────────────────────────────────────────────────
 
@@ -451,14 +316,19 @@ suite('FormatterPanel – formatSQL()', () => {
     });
 
     test('full complex query produces non-empty multi-line output', () => {
-        // Use simple JOIN (not LEFT JOIN) to avoid multi-word keyword replacement edge case
-        const sql = `SELECT u.id, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE u.active = true AND u.created_at > '2023-01-01' GROUP BY u.id ORDER BY u.id DESC LIMIT 100`;
+        const sql = `SELECT u.id, u.name FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.active = true AND u.created_at > '2023-01-01' GROUP BY u.id ORDER BY u.id DESC LIMIT 100`;
         const result = formatSQL(sql);
         assert.ok(result.split('\n').length > 4);
         assert.ok(result.includes('SELECT'));
         assert.ok(result.includes('FROM'));
-        assert.ok(result.includes('JOIN'));
+        assert.ok(result.includes('LEFT JOIN'));
+        assert.ok(!result.includes('\nLEFT\nJOIN'));
         assert.ok(result.includes('WHERE'));
         assert.ok(result.includes('ORDER BY'));
+    });
+
+    test('does not rewrite keywords inside string literals', () => {
+        const result = formatSQL("SELECT name FROM users WHERE name = 'SELECT FROM'");
+        assert.ok(result.includes("'SELECT FROM'"));
     });
 });

@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { DataConverter } from '../converter/dataConverter';
 import { ConversionFormat, OutputFormat } from '../visualizer/types';
@@ -24,7 +25,10 @@ export class DataConverterPanel {
                         this.handleConvert(message.content, message.sourceFormat, message.targetFormat);
                         break;
                     case 'loadFile':
-                        this.handleLoadFile();
+                        void this.handleLoadFile();
+                        break;
+                    case 'download':
+                        void this.handleDownload(message.content, message.fileName);
                         break;
                 }
             },
@@ -52,7 +56,7 @@ export class DataConverterPanel {
             canSelectMany: false,
             openLabel: 'Select File to Convert',
             filters: {
-                'Data Files': ['json', 'yaml', 'yml', 'xml', 'csv', 'raml'],
+                'Data Files': ['json', 'jsonc', 'yaml', 'yml', 'xml', 'csv', 'raml'],
                 'All Files': ['*'],
             },
         };
@@ -62,7 +66,7 @@ export class DataConverterPanel {
             try {
                 const content = await vscode.workspace.fs.readFile(fileUri[0]);
                 const text = Buffer.from(content).toString('utf8');
-                const fileName = fileUri[0].fsPath.split('/').pop() || '';
+                const fileName = path.basename(fileUri[0].fsPath) || '';
                 const detectedFormat = DataConverter.detectFormat(fileName, text);
 
                 this._panel.webview.postMessage({
@@ -76,6 +80,35 @@ export class DataConverterPanel {
                     `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
                 );
             }
+        }
+    }
+
+    private async handleDownload(content: unknown, fileName: unknown) {
+        if (typeof content !== 'string' || !content) {
+            vscode.window.showErrorMessage('No converted output is available to download.');
+            return;
+        }
+
+        const safeName =
+            (typeof fileName === 'string' && fileName.trim()
+                ? path.basename(fileName.trim())
+                : 'converted.json'
+            ).replace(/[^\w.\-]+/g, '-') || 'converted.json';
+        const target = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(safeName),
+            saveLabel: 'Save Converted File',
+        });
+        if (!target) {
+            return;
+        }
+
+        try {
+            await vscode.workspace.fs.writeFile(target, Buffer.from(content, 'utf8'));
+            vscode.window.showInformationMessage(`Converted file saved to ${target.fsPath}`);
+        } catch (error) {
+            vscode.window.showErrorMessage(
+                `Failed to save converted file: ${error instanceof Error ? error.message : String(error)}`,
+            );
         }
     }
 
@@ -482,21 +515,11 @@ export class DataConverterPanel {
         // Download
         downloadBtn.addEventListener('click', () => {
             if (!currentOutput) return;
-
-            let mimeType = 'application/json';
-            if (targetFormat.value === 'xml') {
-                mimeType = 'application/xml';
-            } else if (targetFormat.value === 'yaml') {
-                mimeType = 'application/x-yaml';
-            }
-
-            const blob = new Blob([currentOutput], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = getOutputFileName();
-            a.click();
-            URL.revokeObjectURL(url);
+            vscode.postMessage({
+                command: 'download',
+                content: currentOutput,
+                fileName: getOutputFileName()
+            });
         });
 
         // Copy to clipboard

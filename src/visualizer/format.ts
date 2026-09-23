@@ -2,6 +2,7 @@ import { ConversionFormat } from './types';
 
 const extensionToFormat: Record<string, ConversionFormat> = {
     json: 'json',
+    jsonc: 'json',
     yaml: 'yaml',
     yml: 'yaml',
     xml: 'xml',

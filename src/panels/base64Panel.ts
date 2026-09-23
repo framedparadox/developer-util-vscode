@@ -98,10 +98,13 @@ export class Base64Panel {
 
     private handleDecode(text: string, isFile: boolean = false) {
         try {
-            const decoded = decodeBase64(text).toString('utf8');
+            const decoded = decodeBase64(text);
+            const asUtf8 = decoded.toString('utf8');
+            const isUtf8 = Buffer.from(asUtf8, 'utf8').equals(decoded);
             this._panel.webview.postMessage({
                 command: 'decodeResult',
-                result: decoded,
+                result: isUtf8 ? asUtf8 : decoded.toString('hex'),
+                encoding: isUtf8 ? 'utf8' : 'hex',
                 isFile: isFile,
             });
         } catch (error) {
@@ -471,18 +474,41 @@ export class Base64Panel {
                 });
 
                 document.getElementById('decodeBtn').addEventListener('click', () => {
-                    const text = currentMode === 'text' ? inputText.value : outputText.value;
-
-                    if (!text) {
-                        showError('Please enter Base64 text to decode');
+                    if (currentMode === 'text') {
+                        const text = inputText.value;
+                        if (!text) {
+                            showError('Please enter Base64 text to decode');
+                            return;
+                        }
+                        vscode.postMessage({
+                            command: 'decode',
+                            text: text,
+                            isFile: false
+                        });
                         return;
                     }
 
-                    vscode.postMessage({
-                        command: 'decode',
-                        text: text,
-                        isFile: currentMode === 'file'
-                    });
+                    if (!currentFile) {
+                        showError('Please select a file containing Base64 text');
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target && typeof e.target.result === 'string' ? e.target.result : '';
+                        if (!text.trim()) {
+                            showError('Selected file is empty');
+                            return;
+                        }
+                        vscode.postMessage({
+                            command: 'decode',
+                            text: text,
+                            isFile: true
+                        });
+                    };
+                    reader.onerror = () => {
+                        showError('Failed to read file');
+                    };
+                    reader.readAsText(currentFile);
                 });
 
                 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -518,7 +544,9 @@ export class Base64Panel {
                             break;
                         case 'decodeResult':
                             outputText.value = message.result;
-                            showSuccess('Successfully decoded from Base64!');
+                            showSuccess(message.encoding === 'hex'
+                                ? 'Decoded as hexadecimal because the payload is not valid UTF-8.'
+                                : 'Successfully decoded from Base64!');
                             break;
                         case 'error':
                             showError(message.message);

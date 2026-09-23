@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import {
+    determineCertType,
+    extractCertificateAlgorithm,
+    extractCommonName,
+    extractPemCertificates,
+} from '../certificates/inspect';
 
 const MAX_SCAN_DEPTH = 10;
 const MAX_SCANNED_FILES = 20_000;
@@ -27,6 +33,7 @@ export class CertificateExpiryPanel {
     public static currentPanel: CertificateExpiryPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
+    private _selectedFolderPath: string | undefined;
 
     private constructor(panel: vscode.WebviewPanel) {
         this._panel = panel;
@@ -40,7 +47,7 @@ export class CertificateExpiryPanel {
                         this.handleOpenFolder();
                         return;
                     case 'scanCertificates':
-                        this.handleScanCertificates(message.folderPath, message.storeNew);
+                        void this.handleScanCertificates();
                         return;
                 }
             },
@@ -81,6 +88,7 @@ export class CertificateExpiryPanel {
 
             if (folderUri && folderUri[0]) {
                 const selectedPath = folderUri[0].fsPath;
+                this._selectedFolderPath = selectedPath;
                 if (this._panel && this._panel.webview) {
                     this._panel.webview.postMessage({
                         command: 'folderSelected',
@@ -98,25 +106,18 @@ export class CertificateExpiryPanel {
         }
     }
 
-    private async handleScanCertificates(folderPath: string, storeNew: boolean) {
+    private async handleScanCertificates() {
         try {
-            if (typeof folderPath !== 'string' || folderPath.trim() === '') {
+            const folderPath = this._selectedFolderPath;
+            if (!folderPath) {
                 this._panel.webview.postMessage({
                     command: 'error',
-                    message: 'Please enter a folder path',
+                    message: 'Select a folder before scanning.',
                 });
                 return;
             }
 
-            if (!fs.existsSync(folderPath)) {
-                this._panel.webview.postMessage({
-                    command: 'error',
-                    message: `Folder not found: ${folderPath}`,
-                });
-                return;
-            }
-
-            const stat = fs.statSync(folderPath);
+            const stat = await fs.promises.stat(folderPath);
             if (!stat.isDirectory()) {
                 this._panel.webview.postMessage({
                     command: 'error',
@@ -126,15 +127,15 @@ export class CertificateExpiryPanel {
             }
 
             const certificates: Certificate[] = [];
-            const files = this.getAllFiles(folderPath);
+            const files = await this.collectCertificateFiles(folderPath);
             const certExtensions = ['.crt', '.cer', '.cert', '.pem', '.der', '.ca-bundle', '.ca', '.bundle'];
 
             for (const file of files) {
                 const ext = path.extname(file).toLowerCase();
                 if (certExtensions.includes(ext)) {
                     try {
-                        const certInfo = await this.parseCertificate(file);
-                        if (certInfo) {
+                        const certInfos = await this.parseCertificates(file);
+                        for (const certInfo of certInfos) {
                             certificates.push({
                                 id: this.generateId(),
                                 name: path.basename(file),
@@ -142,7 +143,7 @@ export class CertificateExpiryPanel {
                                 type: certInfo.type,
                                 expiryDate: certInfo.expiryDate,
                                 filePath: file,
-                                stored: storeNew === true,
+                                stored: false,
                                 issuer: certInfo.issuer,
                                 validFrom: certInfo.validFrom,
                                 serialNumber: certInfo.serialNumber,
@@ -177,102 +178,92 @@ export class CertificateExpiryPanel {
         }
     }
 
-    private getAllFiles(dirPath: string, arrayOfFiles: string[] = [], depth: number = 0): string[] {
-        if (depth > MAX_SCAN_DEPTH || arrayOfFiles.length >= MAX_SCANNED_FILES) {
-            return arrayOfFiles;
-        }
+    private async collectCertificateFiles(dirPath: string): Promise<string[]> {
+        const files: string[] = [];
+        const stack: Array<{ dir: string; depth: number }> = [{ dir: dirPath, depth: 0 }];
 
-        let files: string[];
-        try {
-            files = fs.readdirSync(dirPath);
-        } catch {
-            return arrayOfFiles;
-        }
-
-        files.forEach((file) => {
-            if (arrayOfFiles.length >= MAX_SCANNED_FILES) {
-                return;
+        while (stack.length > 0 && files.length < MAX_SCANNED_FILES) {
+            const current = stack.pop();
+            if (!current || current.depth > MAX_SCAN_DEPTH) {
+                continue;
             }
-            const filePath = path.join(dirPath, file);
+
+            let entries: fs.Dirent[];
             try {
-                const stat = fs.lstatSync(filePath);
-                if (stat.isDirectory() && !stat.isSymbolicLink()) {
-                    arrayOfFiles = this.getAllFiles(filePath, arrayOfFiles, depth + 1);
-                } else if (stat.isFile() && stat.size <= MAX_CERTIFICATE_FILE_BYTES) {
-                    arrayOfFiles.push(filePath);
-                }
+                entries = await fs.promises.readdir(current.dir, { withFileTypes: true });
             } catch {
-                // Skip entries that disappear or cannot be read during the scan.
+                continue;
             }
-        });
 
-        return arrayOfFiles;
+            for (const entry of entries) {
+                if (files.length >= MAX_SCANNED_FILES) {
+                    break;
+                }
+                const filePath = path.join(current.dir, entry.name);
+                try {
+                    if (entry.isSymbolicLink()) {
+                        continue;
+                    }
+                    if (entry.isDirectory()) {
+                        stack.push({ dir: filePath, depth: current.depth + 1 });
+                    } else if (entry.isFile()) {
+                        const stat = await fs.promises.stat(filePath);
+                        if (stat.size <= MAX_CERTIFICATE_FILE_BYTES) {
+                            files.push(filePath);
+                        }
+                    }
+                } catch {
+                    // Skip entries that disappear or cannot be read during the scan.
+                }
+            }
+        }
+
+        return files;
     }
 
-    private async parseCertificate(filePath: string): Promise<{
-        subject: string;
-        type: string;
-        expiryDate: string;
-        issuer: string;
-        validFrom: string;
-        serialNumber: string;
-        fingerprint: string;
-        algorithm: string;
-        format: string;
-    } | null> {
+    private async parseCertificates(filePath: string): Promise<
+        Array<{
+            subject: string;
+            type: string;
+            expiryDate: string;
+            issuer: string;
+            validFrom: string;
+            serialNumber: string;
+            fingerprint: string;
+            algorithm: string;
+            format: string;
+        }>
+    > {
         try {
             const fileExt = path.extname(filePath).toLowerCase();
             const format = fileExt.startsWith('.') ? fileExt.substring(1).toUpperCase() : 'UNKNOWN';
-            const buffer = fs.readFileSync(filePath);
+            const buffer = await fs.promises.readFile(filePath);
             const text = buffer.toString('utf8');
-            const pemMatch = text.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/);
-            const cert = new crypto.X509Certificate(pemMatch?.[0] ?? buffer);
+            const pems = extractPemCertificates(text);
+            const sources = pems.length > 0 ? pems : [buffer];
 
-            return {
-                subject: this.extractCommonName(cert.subject),
-                type: this.determineCertType(cert),
-                expiryDate: cert.validTo,
-                issuer: this.extractCommonName(cert.issuer),
-                validFrom: cert.validFrom,
-                serialNumber: cert.serialNumber,
-                fingerprint: cert.fingerprint,
-                algorithm: this.extractAlgorithm(cert),
-                format,
-            };
+            return sources.flatMap((source) => {
+                try {
+                    const cert = new crypto.X509Certificate(source);
+                    return [
+                        {
+                            subject: extractCommonName(cert.subject),
+                            type: determineCertType(cert),
+                            expiryDate: cert.validTo,
+                            issuer: extractCommonName(cert.issuer),
+                            validFrom: cert.validFrom,
+                            serialNumber: cert.serialNumber,
+                            fingerprint: cert.fingerprint,
+                            algorithm: extractCertificateAlgorithm(cert),
+                            format,
+                        },
+                    ];
+                } catch {
+                    return [];
+                }
+            });
         } catch {
-            return null;
-        }
-    }
-
-    private extractCommonName(subject: string): string {
-        const cnMatch = subject.match(/(?:^|\n|,)CN=([^\n,]+)/);
-        return cnMatch ? cnMatch[1] : subject.split('\n')[0] || 'Unknown';
-    }
-
-    private determineCertType(cert: crypto.X509Certificate): string {
-        if (cert.ca) {
-            return 'Certificate Authority';
-        }
-
-        const keyUsage = cert.keyUsage ?? [];
-        if (keyUsage.includes('1.3.6.1.5.5.7.3.3')) {
-            return 'Code Signing';
-        }
-        if (keyUsage.includes('1.3.6.1.5.5.7.3.2')) {
-            return 'Client Authentication';
-        }
-        if (keyUsage.includes('1.3.6.1.5.5.7.3.1')) {
-            return 'TLS Server';
-        }
-        return 'X.509 Certificate';
-    }
-
-    private extractAlgorithm(cert: crypto.X509Certificate): string {
-        try {
-            const legacy = cert.toLegacyObject() as { sigalg?: string };
-            return legacy.sigalg || 'Unknown';
-        } catch {
-            return 'Unknown';
+            return [];
         }
     }
 
@@ -625,7 +616,7 @@ export class CertificateExpiryPanel {
                 <thead>
                     <tr>
                         <th>Status</th>
-                        <th>Certificate Name (CN)</th>
+                        <th>File / CN</th>
                         <th>Issuer</th>
                         <th class="col-type" style="display: none;">Type</th>
                         <th class="col-format" style="display: none;">Format</th>
@@ -896,7 +887,7 @@ export class CertificateExpiryPanel {
                     return \`
                         <tr>
                             <td>\${statusBadge[status]}</td>
-                            <td style="font-weight: 500;">\${window.escapeHtml(cert.owner)}</td>
+                            <td style="font-weight: 500;" title="\${window.escapeHtml(cert.filePath)}">\${window.escapeHtml(cert.name)}<br><span style="opacity:.75;font-weight:400;">\${window.escapeHtml(cert.owner)}</span></td>
                             <td>\${window.escapeHtml(cert.issuer || 'N/A')}</td>
                             <td class="cell-type"\${typeDisplay}>\${window.escapeHtml(cert.type)}</td>
                             <td class="cell-format"\${formatDisplay}>\${window.escapeHtml(cert.format || 'N/A')}</td>

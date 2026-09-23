@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { assertInputSize } from '../limits';
 
 export interface JWTDecodeResult {
     header: Record<string, unknown>;
     payload: Record<string, unknown>;
     signature: string;
     isExpired: boolean;
+    isNotYetValid: boolean;
     expirationInfo: string;
+    validityLabel: 'EXPIRED' | 'NOT YET VALID' | 'NOT EXPIRED' | 'UNVERIFIED';
 }
 
 export function decodeJWT(token: string): JWTDecodeResult {
@@ -31,25 +34,50 @@ export function decodeJWT(token: string): JWTDecodeResult {
         throw new Error('JWT payload must be a JSON object.');
     }
 
-    let isExpired = false;
-    let expirationInfo = '';
-    const expiration = (payload as Record<string, unknown>).exp;
-    if (expiration !== undefined) {
-        if (typeof expiration !== 'number' || !Number.isFinite(expiration)) {
-            throw new Error('JWT exp claim must be a finite NumericDate value.');
-        }
-        const expDate = new Date(expiration * 1000);
-        isExpired = expDate < new Date();
-        expirationInfo = `Expires: ${expDate.toLocaleString()} (${isExpired ? 'EXPIRED' : 'Valid'})`;
+    const claims = payload as Record<string, unknown>;
+    const nowSeconds = Date.now() / 1000;
+    const expiration = readNumericDate(claims.exp, 'exp');
+    const notBefore = readNumericDate(claims.nbf, 'nbf');
+    const isExpired = expiration !== undefined && nowSeconds >= expiration;
+    const isNotYetValid = notBefore !== undefined && nowSeconds < notBefore;
+
+    let validityLabel: JWTDecodeResult['validityLabel'] = 'UNVERIFIED';
+    if (isExpired) {
+        validityLabel = 'EXPIRED';
+    } else if (isNotYetValid) {
+        validityLabel = 'NOT YET VALID';
+    } else if (expiration !== undefined) {
+        validityLabel = 'NOT EXPIRED';
     }
+
+    const details: string[] = [];
+    if (expiration !== undefined) {
+        details.push(`Expires: ${new Date(expiration * 1000).toLocaleString()}`);
+    }
+    if (notBefore !== undefined) {
+        details.push(`Not before: ${new Date(notBefore * 1000).toLocaleString()}`);
+    }
+    const expirationInfo = details.join(' · ');
 
     return {
         header: header as Record<string, unknown>,
-        payload: payload as Record<string, unknown>,
+        payload: claims,
         signature: parts[2],
         isExpired,
+        isNotYetValid,
         expirationInfo,
+        validityLabel,
     };
+}
+
+function readNumericDate(value: unknown, claim: string): number | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error(`JWT ${claim} claim must be a finite NumericDate value.`);
+    }
+    return value;
 }
 
 export class JWTPanel {
@@ -94,7 +122,7 @@ export class JWTPanel {
 
     private handleDecode(token: string) {
         try {
-            const result = decodeJWT(token);
+            const result = decodeJWT(assertInputSize(token, 'JWT'));
 
             this._panel.webview.postMessage({
                 command: 'decodeResult',
@@ -102,7 +130,9 @@ export class JWTPanel {
                 payload: JSON.stringify(result.payload, null, 2),
                 signature: result.signature,
                 isExpired: result.isExpired,
+                isNotYetValid: result.isNotYetValid,
                 expirationInfo: result.expirationInfo,
+                validityLabel: result.validityLabel,
             });
         } catch (error) {
             this._panel.webview.postMessage({
@@ -402,16 +432,16 @@ export class JWTPanel {
                             signatureOutput.value = message.signature;
                             decodedSection.style.display = 'block';
 
-                            if (message.expirationInfo) {
-                                const badgeClass = message.isExpired ? 'expired' : 'valid';
+                            if (message.expirationInfo || message.validityLabel) {
+                                const badgeClass = message.isExpired || message.isNotYetValid ? 'expired' : 'valid';
                                 const wrapper = document.createElement('div');
                                 wrapper.className = 'warning';
                                 const label = document.createElement('strong');
-                                label.textContent = 'Token Expiration: ';
-                                const text = document.createTextNode(message.expirationInfo);
+                                label.textContent = 'Token claims: ';
+                                const text = document.createTextNode(message.expirationInfo || 'No exp or nbf claim.');
                                 const badge = document.createElement('span');
                                 badge.className = 'expiration-badge ' + badgeClass;
-                                badge.textContent = message.isExpired ? 'EXPIRED' : 'VALID';
+                                badge.textContent = message.validityLabel || 'UNVERIFIED';
                                 wrapper.appendChild(label);
                                 wrapper.appendChild(text);
                                 wrapper.appendChild(badge);

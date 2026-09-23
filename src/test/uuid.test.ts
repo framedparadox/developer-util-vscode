@@ -3,51 +3,14 @@
  * Pure generation functions only – no VS Code dependency.
  */
 import * as assert from 'assert';
-import * as crypto from 'crypto';
 import { decodeBase64 } from '../panels/base64Panel';
+import { NULL_UUID, UUID_REGEX, UuidGenerator } from '../uuid/generate';
 
-// ─── Pure logic (mirrors UUIDPanel private methods) ───────────────────────────
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function uuidv1(): string {
-    const now = BigInt(Date.now());
-    const timestamp = now * 10000n + 0x01b21dd213814000n;
-
-    const timeLow = (timestamp & 0xffffffffn).toString(16).padStart(8, '0');
-    const timeMid = ((timestamp >> 32n) & 0xffffn).toString(16).padStart(4, '0');
-    const timeHi = (((timestamp >> 48n) & 0x0fffn) | 0x1000n).toString(16).padStart(4, '0');
-
-    const clockSeq = crypto.randomBytes(2);
-    clockSeq[0] = (clockSeq[0] & 0x3f) | 0x80;
-
-    const node = crypto.randomBytes(6);
-    return `${timeLow}-${timeMid}-${timeHi}-${clockSeq.toString('hex')}-${node.toString('hex')}`;
-}
-
-function uuidv4(): string {
-    return crypto.randomUUID();
-}
-
-function uuidv7(): string {
-    const timestamp = Date.now();
-    const timeHex = timestamp.toString(16).padStart(12, '0');
-    const timeLow32 = timeHex.substring(0, 8);
-    const timeMid16 = timeHex.substring(8, 12);
-
-    const randBytes = crypto.randomBytes(10);
-    const ver =
-        ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
-    randBytes[2] = (randBytes[2] & 0x3f) | 0x80;
-    const variant = randBytes.toString('hex', 2, 4);
-    const node = randBytes.toString('hex', 4, 10);
-
-    return `${timeLow32}-${timeMid16}-${ver}-${variant}-${node}`;
-}
-
-function nullUUID(): string {
-    return '00000000-0000-0000-0000-000000000000';
-}
+const generator = new UuidGenerator();
+const uuidv1 = () => generator.uuidv1();
+const uuidv4 = () => generator.uuidv4();
+const uuidv7 = () => generator.uuidv7();
+const nullUUID = () => generator.nullUuid();
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
 
@@ -70,7 +33,7 @@ function uuidVariant(uuid: string): string {
 
 suite('UUIDPanel – Null UUID', () => {
     test('equals 00000000-0000-0000-0000-000000000000', () => {
-        assert.strictEqual(nullUUID(), '00000000-0000-0000-0000-000000000000');
+        assert.strictEqual(nullUUID(), NULL_UUID);
     });
 
     test('matches UUID regex format', () => {
@@ -220,13 +183,14 @@ suite('UUIDPanel – UUID v7', () => {
 
     test('monotonically increasing within tight loop (sortable)', () => {
         const uuids = Array.from({ length: 20 }, () => uuidv7());
-        const timestamps = uuids.map((u) => parseInt(u.replace(/-/g, '').substring(0, 12), 16));
-        for (let i = 1; i < timestamps.length; i++) {
-            assert.ok(
-                timestamps[i] >= timestamps[i - 1],
-                `UUID ${i} timestamp ${timestamps[i]} < previous ${timestamps[i - 1]}`,
-            );
+        for (let i = 1; i < uuids.length; i++) {
+            assert.ok(uuids[i] > uuids[i - 1], `UUID ${i} ${uuids[i]} is not greater than previous ${uuids[i - 1]}`);
         }
+    });
+
+    test('sets the multicast bit on UUID v1 node IDs', () => {
+        const node = uuidv1().split('-')[4];
+        assert.strictEqual(parseInt(node.slice(0, 2), 16) & 0x01, 0x01);
     });
 });
 

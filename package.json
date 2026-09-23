@@ -1,7 +1,7 @@
 {
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
-    "description": "Developer utilities for data formatting, conversion, visualization, encoding, encryption, tokens, UUIDs, and certificates.",
+    "description": "Offline developer utilities for encoding, hashing, tokens, time, network, text, formatting, conversion, visualization, and certificates.",
     "version": "0.0.5",
     "publisher": "framedparadox",
     "license": "MIT",
@@ -20,7 +20,15 @@
         "yaml",
         "csv",
         "certificate",
-        "developer tools"
+        "developer tools",
+        "hash",
+        "regex",
+        "timestamp",
+        "cron",
+        "url",
+        "ulid",
+        "totp",
+        "semver"
     ],
     "repository": {
         "type": "git",
@@ -144,6 +152,306 @@
                 "icon": "$(sync)"
             },
             {
+                "command": "devx.urlTool",
+                "title": "URL Encode / Decode",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.htmlTool",
+                "title": "HTML Encode / Decode",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.hexTool",
+                "title": "Hex / Binary Encode",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.base32Tool",
+                "title": "Base32 / Base58",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.unicodeTool",
+                "title": "Unicode Escape",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.punycodeTool",
+                "title": "Punycode / IDN",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.gzipTool",
+                "title": "Gzip Compress",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.dataUriTool",
+                "title": "Data URI",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.queryStringTool",
+                "title": "Query String",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.hashTool",
+                "title": "Hash Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.hmacTool",
+                "title": "HMAC",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.passwordTool",
+                "title": "Password Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.tokenTool",
+                "title": "Random Token",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.scryptTool",
+                "title": "Password Hasher",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.keyPairTool",
+                "title": "Key Pair Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.totpTool",
+                "title": "TOTP",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.basicAuthTool",
+                "title": "Basic Auth Header",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jwtSignTool",
+                "title": "JWT Signer",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.ulidTool",
+                "title": "ULID Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.nanoidTool",
+                "title": "Nano ID Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.snowflakeTool",
+                "title": "Snowflake ID",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.timestampTool",
+                "title": "Timestamp Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.numberBaseTool",
+                "title": "Number Base",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.colorTool",
+                "title": "Color Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.contrastTool",
+                "title": "Contrast Checker",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.caseTool",
+                "title": "Case Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.slugTool",
+                "title": "Slug Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cronTool",
+                "title": "Cron Parser",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.chmodTool",
+                "title": "Chmod Calculator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.subnetTool",
+                "title": "IPv4 Subnet",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.ipv6UlaTool",
+                "title": "IPv6 ULA",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.macTool",
+                "title": "MAC Address",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.semverTool",
+                "title": "SemVer Calculator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cssUnitsTool",
+                "title": "CSS Units",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.byteUnitsTool",
+                "title": "Byte Units",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.romanTool",
+                "title": "Roman Numerals",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.regexTool",
+                "title": "Regex Tester",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.globTool",
+                "title": "Glob Tester",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.diffTool",
+                "title": "Text Diff",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.textStatsTool",
+                "title": "Text Statistics",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.lineToolsTool",
+                "title": "Line Tools",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.loremTool",
+                "title": "Lorem Ipsum",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.markdownTool",
+                "title": "Markdown Preview",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.asciiTool",
+                "title": "ASCII / Code Points",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.natoTool",
+                "title": "NATO Phonetic",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonPathTool",
+                "title": "JSONPath",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonToTsTool",
+                "title": "JSON to TypeScript",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.configFormatTool",
+                "title": "Env / INI / Properties",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cssFormatTool",
+                "title": "CSS Formatter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.htmlFormatTool",
+                "title": "HTML Formatter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.urlParserTool",
+                "title": "URL Parser",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.userAgentTool",
+                "title": "User-Agent Parser",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.mimeTool",
+                "title": "MIME Types",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.httpStatusTool",
+                "title": "HTTP Status",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.qrTool",
+                "title": "QR Code",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.randomPortTool",
+                "title": "Random Port",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.keyCodeTool",
+                "title": "Key Codes",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.deviceInfoTool",
+                "title": "Device Info",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.gitignoreTool",
+                "title": "Gitignore Starter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.corsTool",
+                "title": "CORS Headers",
+                "category": "Developer Utilities"
+            },
+            {
                 "command": "devx.configureSidebar",
                 "title": "Configure Sidebar",
                 "category": "Developer Utilities",
@@ -174,13 +482,14 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run package",
+        "vscode:prepublish": "npm run typecheck && npm run package",
         "compile": "webpack",
         "watch": "webpack --watch",
         "package": "webpack --mode production --devtool hidden-source-map",
         "compile-tests": "tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "typecheck": "tsc --noEmit -p .",
+        "pretest": "npm run typecheck && npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "format": "prettier --write .",
@@ -194,6 +503,7 @@
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
         "@types/papaparse": "^5.5.2",
+        "@types/qrcode": "^1.5.6",
         "@types/vscode": "1.105.0",
         "@typescript-eslint/eslint-plugin": "^8.62.1",
         "@typescript-eslint/parser": "^8.62.1",
@@ -212,7 +522,8 @@
         "d3": "^7.9.0",
         "fast-xml-parser": "^5.9.3",
         "js-yaml": "^4.3.0",
-        "papaparse": "^5.5.4"
+        "papaparse": "^5.5.4",
+        "qrcode": "^1.5.4"
     },
     "overrides": {
         "diff": "^8.0.4",

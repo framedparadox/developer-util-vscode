@@ -1,15 +1,13 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { UuidGenerator } from '../uuid/generate';
 
 export class UUIDPanel {
     public static currentPanel: UUIDPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
-    // Monotonic state for UUID v1 so values generated within the same
-    // millisecond remain unique and time-ordered.
-    private _v1LastMs = 0n;
-    private _v1Counter = 0n;
+    private readonly _generator = new UuidGenerator();
 
     private constructor(panel: vscode.WebviewPanel) {
         this._panel = panel;
@@ -60,7 +58,7 @@ export class UUIDPanel {
 
     private generateUUID1() {
         // UUID v1 (timestamp-based)
-        const uuid = this.uuidv1();
+        const uuid = this._generator.uuidv1();
         this._panel.webview.postMessage({
             command: 'result',
             uuid: uuid,
@@ -80,7 +78,7 @@ export class UUIDPanel {
 
     private generateUUID7() {
         // UUID v7 (timestamp-based, sortable)
-        const uuid = this.uuidv7();
+        const uuid = this._generator.uuidv7();
         this._panel.webview.postMessage({
             command: 'result',
             uuid: uuid,
@@ -89,7 +87,7 @@ export class UUIDPanel {
     }
 
     private generateNullUUID() {
-        const uuid = '00000000-0000-0000-0000-000000000000';
+        const uuid = this._generator.nullUuid();
         this._panel.webview.postMessage({
             command: 'result',
             uuid: uuid,
@@ -122,13 +120,13 @@ export class UUIDPanel {
         for (let i = 0; i < safeCount; i++) {
             switch (type) {
                 case 'v1':
-                    uuids.push(this.uuidv1());
+                    uuids.push(this._generator.uuidv1());
                     break;
                 case 'v4':
-                    uuids.push(crypto.randomUUID());
+                    uuids.push(this._generator.uuidv4());
                     break;
                 case 'v7':
-                    uuids.push(this.uuidv7());
+                    uuids.push(this._generator.uuidv7());
                     break;
             }
         }
@@ -138,61 +136,6 @@ export class UUIDPanel {
             count: safeCount,
             type: type,
         });
-    }
-
-    // UUID v1 implementation (RFC 4122, section 4.5: random node ID)
-    private uuidv1(): string {
-        const nowMs = BigInt(Date.now());
-        // Bump a sub-millisecond counter so multiple UUIDs minted in the same
-        // millisecond stay unique and ordered. Each tick = 100 ns; cap the
-        // counter at the 10000 ticks that fit in one millisecond.
-        if (nowMs > this._v1LastMs) {
-            this._v1LastMs = nowMs;
-            this._v1Counter = 0n;
-        } else {
-            this._v1Counter += 1n;
-            if (this._v1Counter >= 10000n) {
-                // Exhausted this millisecond; advance time to the next one.
-                this._v1LastMs += 1n;
-                this._v1Counter = 0n;
-            }
-        }
-
-        const timestamp = this._v1LastMs * 10000n + this._v1Counter + 0x01b21dd213814000n;
-
-        const timeLow = (timestamp & 0xffffffffn).toString(16).padStart(8, '0');
-        const timeMid = ((timestamp >> 32n) & 0xffffn).toString(16).padStart(4, '0');
-        const timeHi = (((timestamp >> 48n) & 0x0fffn) | 0x1000n).toString(16).padStart(4, '0');
-
-        const clockSeq = crypto.randomBytes(2);
-        clockSeq[0] = (clockSeq[0] & 0x3f) | 0x80;
-
-        // Random node ID: set the multicast bit (least-significant bit of the
-        // first octet) to mark it as non-MAC, per RFC 4122.
-        const node = crypto.randomBytes(6);
-        node[0] = node[0] | 0x01;
-
-        return `${timeLow}-${timeMid}-${timeHi}-${clockSeq.toString('hex')}-${node.toString('hex')}`;
-    }
-
-    // UUID v7 implementation
-    private uuidv7(): string {
-        const timestamp = Date.now();
-        // 48-bit timestamp split into: 32 high bits, then 16 low bits
-        const timeHex = timestamp.toString(16).padStart(12, '0');
-        const timeLow32 = timeHex.substring(0, 8);
-        const timeMid16 = timeHex.substring(8, 12);
-
-        const randBytes = crypto.randomBytes(10);
-        // version nibble (7) occupies top 4 bits of the 3rd group
-        const ver =
-            ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
-        // variant bits (10xx) for the 4th group
-        randBytes[2] = (randBytes[2] & 0x3f) | 0x80;
-        const variant = randBytes.toString('hex', 2, 4);
-        const node = randBytes.toString('hex', 4, 10);
-
-        return `${timeLow32}-${timeMid16}-${ver}-${variant}-${node}`;
     }
 
     public dispose() {

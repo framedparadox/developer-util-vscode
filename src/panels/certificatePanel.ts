@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import {
+    inspectCertificateDates,
+    normalizeCertificateInput,
+} from '../certificates/inspect';
+import { assertInputSize } from '../limits';
 
 export function quotePosixShellArgument(value: string): string {
     return `'${value.replace(/'/g, `'\"'\"'`)}'`;
@@ -62,48 +67,40 @@ export class CertificatePanel {
 
     private handleValidateCert(certPem: string) {
         try {
-            // Clean and validate PEM format
-            const cleanCert = this.cleanPEM(certPem, 'CERTIFICATE');
+            const pems = normalizeCertificateInput(assertInputSize(certPem, 'Certificate'));
+            const certificates = pems.map((pem, index) => {
+                const cert = new crypto.X509Certificate(pem);
+                const dates = inspectCertificateDates(cert);
+                return {
+                    index: index + 1,
+                    withinValidityWindow: dates.withinValidityWindow,
+                    subject: cert.subject,
+                    issuer: cert.issuer,
+                    validFrom: dates.validFrom.toISOString(),
+                    validTo: dates.validTo.toISOString(),
+                    serialNumber: cert.serialNumber,
+                    fingerprint: cert.fingerprint,
+                };
+            });
+            const first = certificates[0];
+            const allWithinWindow = certificates.every((item) => item.withinValidityWindow);
 
-            // Try to create X509 certificate (Node.js 15.6+)
-            const cert = crypto.X509Certificate ? new crypto.X509Certificate(cleanCert) : null;
-
-            if (cert) {
-                const validFrom = new Date(cert.validFrom);
-                const validTo = new Date(cert.validTo);
-                const now = new Date();
-                const isValid = now >= validFrom && now <= validTo;
-
-                this._panel.webview.postMessage({
-                    command: 'validateResult',
-                    result: {
-                        valid: isValid,
-                        subject: cert.subject,
-                        issuer: cert.issuer,
-                        validFrom: validFrom.toISOString(),
-                        validTo: validTo.toISOString(),
-                        serialNumber: cert.serialNumber,
-                        fingerprint: cert.fingerprint,
-                        message: isValid ? 'Certificate is valid' : 'Certificate has expired or is not yet valid',
-                    },
-                });
-            } else {
-                // Fallback: Basic PEM validation
-                const lines = cleanCert.split('\n');
-                const hasHeader = lines[0].includes('BEGIN CERTIFICATE');
-                const hasFooter = lines[lines.length - 1].includes('END CERTIFICATE');
-
-                this._panel.webview.postMessage({
-                    command: 'validateResult',
-                    result: {
-                        valid: hasHeader && hasFooter,
-                        message:
-                            hasHeader && hasFooter
-                                ? 'Certificate format is valid (detailed validation requires Node.js 15.6+)'
-                                : 'Invalid certificate format',
-                    },
-                });
-            }
+            this._panel.webview.postMessage({
+                command: 'validateResult',
+                result: {
+                    valid: allWithinWindow,
+                    subject: first.subject,
+                    issuer: first.issuer,
+                    validFrom: first.validFrom,
+                    validTo: first.validTo,
+                    serialNumber: first.serialNumber,
+                    fingerprint: first.fingerprint,
+                    certificates,
+                    message: allWithinWindow
+                        ? `Inspected ${certificates.length} certificate(s). Dates are currently within the validity window. This is not a trust, hostname, or revocation check.`
+                        : `Inspected ${certificates.length} certificate(s). At least one certificate is expired or not yet valid. This is not a trust, hostname, or revocation check.`,
+                },
+            });
         } catch (error) {
             this._panel.webview.postMessage({
                 command: 'error',
@@ -114,13 +111,11 @@ export class CertificatePanel {
 
     private handleDecodeCert(certPem: string) {
         try {
-            const cleanCert = this.cleanPEM(certPem, 'CERTIFICATE');
-
-            // Try to decode using X509Certificate
-            const cert = crypto.X509Certificate ? new crypto.X509Certificate(cleanCert) : null;
-
-            if (cert) {
-                const info = {
+            const pems = normalizeCertificateInput(assertInputSize(certPem, 'Certificate'));
+            const info = pems.map((pem, index) => {
+                const cert = new crypto.X509Certificate(pem);
+                return {
+                    index: index + 1,
                     subject: cert.subject,
                     issuer: cert.issuer,
                     validFrom: cert.validFrom,
@@ -132,30 +127,12 @@ export class CertificatePanel {
                     subjectAltName: cert.subjectAltName || 'N/A',
                     infoAccess: cert.infoAccess || 'N/A',
                 };
+            });
 
-                this._panel.webview.postMessage({
-                    command: 'decodeResult',
-                    result: JSON.stringify(info, null, 2),
-                });
-            } else {
-                // Fallback: Show basic info
-                const base64Data = cleanCert
-                    .replace(/-----BEGIN CERTIFICATE-----/, '')
-                    .replace(/-----END CERTIFICATE-----/, '')
-                    .replace(/\s/g, '');
-
-                const info = {
-                    format: 'X.509 Certificate',
-                    size: base64Data.length,
-                    message: 'Detailed decoding requires Node.js 15.6+',
-                    rawBase64: base64Data.substring(0, 100) + '...',
-                };
-
-                this._panel.webview.postMessage({
-                    command: 'decodeResult',
-                    result: JSON.stringify(info, null, 2),
-                });
-            }
+            this._panel.webview.postMessage({
+                command: 'decodeResult',
+                result: JSON.stringify(info.length === 1 ? info[0] : info, null, 2),
+            });
         } catch (error) {
             this._panel.webview.postMessage({
                 command: 'error',
@@ -175,7 +152,7 @@ export class CertificatePanel {
             `-alias ${quotePosixShellArgument(alias.trim())} -file certificate.pem`;
         this._panel.webview.postMessage({
             command: 'jksInstructionsResult',
-            result: `Run this POSIX-compatible command in a trusted terminal. keytool will prompt for the keystore password:\n\n${command}`,
+            result: `Run this POSIX-quoted command in a trusted terminal (Git Bash or WSL on Windows). keytool will prompt for the keystore password:\n\n${command}`,
         });
     }
 
@@ -197,7 +174,7 @@ export class CertificatePanel {
             `-inkey ${quotePosixShellArgument(keyPath.trim())} -out ${quotePosixShellArgument(outputPath.trim())}`;
         this._panel.webview.postMessage({
             command: 'pkcs12InstructionsResult',
-            result: `Run this POSIX-compatible command in a trusted terminal. OpenSSL will prompt for the PKCS#12 password:\n\n${command}`,
+            result: `Run this POSIX-quoted command in a trusted terminal (Git Bash or WSL on Windows). OpenSSL will prompt for the PKCS#12 password:\n\n${command}`,
         });
     }
 
@@ -206,14 +183,6 @@ export class CertificatePanel {
             command: 'error',
             message,
         });
-    }
-
-    private cleanPEM(pem: string, type: string): string {
-        pem = pem.trim();
-        if (!pem.includes(`-----BEGIN ${type}-----`)) {
-            pem = `-----BEGIN ${type}-----\n${pem}\n-----END ${type}-----`;
-        }
-        return pem;
     }
 
     public dispose() {
@@ -629,7 +598,16 @@ export class CertificatePanel {
             let html = '<div class="result-box ' + className + '">';
             html += '<strong>Status:</strong> ' + escapeHtml(String(result.message)) + '\\n\\n';
 
-            if (result.subject) {
+            if (result.certificates && result.certificates.length > 1) {
+                result.certificates.forEach(function(cert) {
+                    html += '\\n<strong>Certificate ' + cert.index + '</strong>\\n';
+                    html += '<strong>Subject:</strong> ' + escapeHtml(String(cert.subject)) + '\\n';
+                    html += '<strong>Issuer:</strong> ' + escapeHtml(String(cert.issuer)) + '\\n';
+                    html += '<strong>Valid From:</strong> ' + escapeHtml(String(cert.validFrom)) + '\\n';
+                    html += '<strong>Valid To:</strong> ' + escapeHtml(String(cert.validTo)) + '\\n';
+                    html += '<strong>Date window:</strong> ' + (cert.withinValidityWindow ? 'current' : 'expired or not yet valid') + '\\n';
+                });
+            } else if (result.subject) {
                 html += '<strong>Subject:</strong> ' + escapeHtml(String(result.subject)) + '\\n';
                 html += '<strong>Issuer:</strong> ' + escapeHtml(String(result.issuer)) + '\\n';
                 html += '<strong>Valid From:</strong> ' + escapeHtml(String(result.validFrom)) + '\\n';

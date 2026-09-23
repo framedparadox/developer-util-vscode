@@ -8,14 +8,9 @@ export class XMLParserImpl implements Parser {
                 ignoreAttributes: false,
                 attributeNamePrefix: '@_',
                 textNodeName: '#text',
-                parseAttributeValue: true,
-                parseTagValue: true,
+                parseAttributeValue: false,
+                parseTagValue: false,
                 trimValues: true,
-                isArray: (name, jpath, isLeafNode, isAttribute) => {
-                    // Force arrays for repeated elements
-                    // This ensures consistent structure
-                    return false; // Let parser decide naturally
-                },
                 removeNSPrefix: true, // Remove namespace prefixes
                 allowBooleanAttributes: true,
             });

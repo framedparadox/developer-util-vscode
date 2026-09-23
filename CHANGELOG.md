@@ -4,6 +4,21 @@ All notable changes to Developer Utility Tools are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [0.0.5] - Unreleased
+
+### Fixed
+
+- Stopped circular YAML/JSON from overflowing the visualizer stack.
+- Parsed JSONC (comments and trailing commas) for the editor Visualize action.
+- Decoded Base64 from the selected file instead of the output textarea.
+- Kept `LEFT JOIN` / `RIGHT JOIN` together and skipped SQL keywords inside strings.
+- Validated formatter indent, escape tab size, and input size on the extension host.
+- Scanned only the folder chosen in the certificate expiry dialog and reported public-key algorithms.
+- Evaluated JWT `nbf` and stopped labeling unverified tokens as `VALID`.
+- Made UUID v7 same-millisecond values monotonic and tested the real generator.
+- Saved converter downloads through `showSaveDialog` and used `path.basename` on Windows paths.
+- Added `.vscodeignore`, a real `.gitignore`, and `tsc --noEmit` before publish.
+
 ## [0.0.4] - Unreleased
 
 ### Changed

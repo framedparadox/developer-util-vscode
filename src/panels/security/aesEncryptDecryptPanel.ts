@@ -23,7 +23,7 @@ const MAX_INPUT_BYTES = 10 * 1024 * 1024;
  * since checking the hostname string alone is bypassable via DNS rebinding
  * (a hostname that resolves to e.g. 169.254.169.254).
  */
-function isBlockedIpLiteral(ipAddress: string): boolean {
+export function isBlockedIpLiteral(ipAddress: string): boolean {
     const host = ipAddress.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
 
     // IPv6 loopback (::1) and unique-local / link-local ranges (fc00::/7, fe80::/10).
@@ -50,6 +50,12 @@ function isBlockedIpLiteral(ipAddress: string): boolean {
         if (a === 192 && b === 168) {
             return true; // 192.168.0.0/16
         }
+        if (a === 100 && b >= 64 && b <= 127) {
+            return true; // 100.64.0.0/10 CGNAT / some cloud metadata paths
+        }
+        if (a === 192 && b === 0 && Number(octets[2]) === 0 && Number(octets[3]) <= 7) {
+            return true; // 192.0.0.0/29
+        }
     }
 
     return false;
@@ -61,7 +67,7 @@ function isBlockedIpLiteral(ipAddress: string): boolean {
  * pre-DNS check; the actual resolved address is validated separately
  * in fetchUrlContent before connecting.
  */
-function isBlockedHost(hostname: string): boolean {
+export function isBlockedHost(hostname: string): boolean {
     const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
 
     if (host === 'localhost' || host.endsWith('.localhost')) {
@@ -742,6 +748,7 @@ export class AesEncryptDecryptPanel {
                             <option value="NoPadding">NoPadding</option>
                         </select>
                         <div class="hint" id="paddingHint" style="display:none;">Padding is ignored for CFB/CTR/OFB.</div>
+                        <div class="hint" id="zeroPaddingHint" style="display:none;">ZeroPadding cannot recover trailing NUL bytes. Binary that ends with 0x00 is truncated on decrypt.</div>
                         <div class="hint" id="ecbHint" style="display:none;">ECB mode uses no IV and does not hide data patterns. Avoid it unless required for compatibility.</div>
                     </div>
                     <div class="field">
@@ -844,7 +851,10 @@ export class AesEncryptDecryptPanel {
         <div class="passphrase-row">
             <div>
                 <label for="passphrase">Passphrase</label>
-                <input type="text" id="passphrase" placeholder="Enter passphrase">
+                <input type="password" id="passphrase" placeholder="Enter passphrase" autocomplete="off">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+                    <input type="checkbox" id="showPassphrase"> Show
+                </label>
             </div>
             <button class="button primary" id="encryptBtn" type="button">Encrypt</button>
             <button class="button primary" id="decryptBtn" type="button">Decrypt</button>
@@ -893,6 +903,8 @@ export class AesEncryptDecryptPanel {
         const modeEl = document.getElementById('mode');
         const paddingEl = document.getElementById('padding');
         const paddingHintEl = document.getElementById('paddingHint');
+        const zeroPaddingHintEl = document.getElementById('zeroPaddingHint');
+        const showPassphraseEl = document.getElementById('showPassphrase');
         const ecbHintEl = document.getElementById('ecbHint');
         const keyTypeEl = document.getElementById('keyType');
         const hashEl = document.getElementById('hash');
@@ -953,6 +965,7 @@ export class AesEncryptDecryptPanel {
             const blockMode = isBlockMode(modeEl.value);
             paddingEl.disabled = !blockMode;
             paddingHintEl.style.display = blockMode ? 'none' : 'block';
+            zeroPaddingHintEl.style.display = blockMode && paddingEl.value === 'ZeroPadding' ? 'block' : 'none';
             ecbHintEl.style.display = modeEl.value === 'ECB' ? 'block' : 'none';
         }
 
@@ -1110,6 +1123,10 @@ export class AesEncryptDecryptPanel {
         });
 
         modeEl.addEventListener('change', updateModeAndPaddingState);
+        paddingEl.addEventListener('change', updateModeAndPaddingState);
+        showPassphraseEl.addEventListener('change', () => {
+            passphraseEl.type = showPassphraseEl.checked ? 'text' : 'password';
+        });
         keyTypeEl.addEventListener('change', updateKeyTypeState);
         saltTypeEl.addEventListener('change', updateSaltState);
         iterationDefaultEl.addEventListener('change', updateIterationState);

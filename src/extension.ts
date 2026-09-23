@@ -9,8 +9,10 @@ import {
     FormatterPanel,
     JWTPanel,
     UUIDPanel,
+    UtilityPanel,
     VisualizerPanel,
 } from './panels';
+import { UTILITY_TOOLS } from './utilities/registry';
 import { DevXToolsProvider, ConfigSidebarPanel, getGeneralPreferences } from './providers';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -73,6 +75,12 @@ export function activate(context: vscode.ExtensionContext) {
         DataConverterPanel.render(context.extensionUri);
     });
 
+    const utilityCommands = UTILITY_TOOLS.map((tool) =>
+        vscode.commands.registerCommand(tool.command, () => {
+            UtilityPanel.render(context.extensionUri, tool.id);
+        }),
+    );
+
     // Register Configure Sidebar command
     const configureSidebarCommand = vscode.commands.registerCommand('devx.configureSidebar', () => {
         ConfigSidebarPanel.render(context, () => devxToolsProvider.refresh());
@@ -99,6 +107,7 @@ export function activate(context: vscode.ExtensionContext) {
         visualizerCommand,
         visualizerFromFileCommand,
         dataConverterCommand,
+        ...utilityCommands,
         configureSidebarCommand,
         refreshCommand,
     );

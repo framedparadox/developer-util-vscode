@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { CSVParser, JSONParser, RAMLParser, XMLParserImpl, YAMLParser } from '../visualizer/parsers';
 import { detectDataFormat } from '../visualizer/format';
@@ -22,6 +23,7 @@ export class VisualizerPanel {
     private _disposables: vscode.Disposable[] = [];
     private readonly _extensionUri: vscode.Uri;
     private _context: VisualizerContext;
+    private _parseGeneration = 0;
 
     private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: VisualizerContext) {
         this._panel = panel;
@@ -41,7 +43,7 @@ export class VisualizerPanel {
                         });
                         return;
                     case 'parse':
-                        this.handleParse(message.content, message.fileName, message.fileType);
+                        this.handleParse(message.content, message.fileName, message.fileType, message.requestId);
                         return;
                     case 'exportImage':
                         void this.handleExportImage(message.svg, message.fileName);
@@ -91,7 +93,7 @@ export class VisualizerPanel {
 
         const document = editor.document;
         const fileContent = document.getText();
-        const fileName = document.fileName.split('/').pop() || 'untitled';
+        const fileName = path.basename(document.fileName) || 'untitled';
         const fileType = document.languageId;
 
         if (VisualizerPanel.currentPanel) {
@@ -129,27 +131,33 @@ export class VisualizerPanel {
         }
     }
 
-    private handleParse(content: unknown, fileName?: string, fileType?: string) {
+    private handleParse(content: unknown, fileName?: string, fileType?: string, requestId?: unknown) {
+        const generation = ++this._parseGeneration;
         const startedAt = Date.now();
         if (typeof content !== 'string') {
-            this.postParseError('Visualization input must be text.');
+            this.postParseError('Visualization input must be text.', undefined, requestId, generation);
             return;
         }
         const source = content;
         const trimmedContent = source.trim();
 
         if (!trimmedContent) {
-            this.postParseError('No data to visualize.');
+            this.postParseError('No data to visualize.', undefined, requestId, generation);
             return;
         }
         if (Buffer.byteLength(source, 'utf8') > MAX_INPUT_BYTES) {
-            this.postParseError('Visualization input exceeds the 10 MB limit.');
+            this.postParseError('Visualization input exceeds the 10 MB limit.', undefined, requestId, generation);
             return;
         }
 
         const format = detectDataFormat(source, fileName, fileType);
         if (!format) {
-            this.postParseError('Unsupported or unrecognized data format. Use JSON, YAML, RAML, XML, or CSV.');
+            this.postParseError(
+                'Unsupported or unrecognized data format. Use JSON, YAML, RAML, XML, or CSV.',
+                undefined,
+                requestId,
+                generation,
+            );
             return;
         }
 
@@ -174,20 +182,33 @@ export class VisualizerPanel {
                 },
             };
 
+            if (generation !== this._parseGeneration) {
+                return;
+            }
             this._panel.webview.postMessage({
                 command: 'visualize',
                 data: graphData,
+                requestId,
             });
         } catch (error) {
-            this.postParseError(error instanceof Error ? error.message : String(error), format);
+            this.postParseError(error instanceof Error ? error.message : String(error), format, requestId, generation);
         }
     }
 
-    private postParseError(message: string, format?: ConversionFormat) {
+    private postParseError(
+        message: string,
+        format?: ConversionFormat,
+        requestId?: unknown,
+        generation?: number,
+    ) {
+        if (generation !== undefined && generation !== this._parseGeneration) {
+            return;
+        }
         this._panel.webview.postMessage({
             command: 'parseError',
             message,
             format,
+            requestId,
         });
     }
 
@@ -218,8 +239,14 @@ export class VisualizerPanel {
             return;
         }
 
-        await vscode.workspace.fs.writeFile(target, Buffer.from(svg, 'utf8'));
-        vscode.window.showInformationMessage(`Visualization exported to ${target.fsPath}`);
+        try {
+            await vscode.workspace.fs.writeFile(target, Buffer.from(svg, 'utf8'));
+            vscode.window.showInformationMessage(`Visualization exported to ${target.fsPath}`);
+        } catch (error) {
+            vscode.window.showErrorMessage(
+                `Failed to export visualization: ${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
     }
 
     private getParser(format: ConversionFormat): Parser {
@@ -1009,6 +1036,7 @@ export class VisualizerPanel {
         let isResizing = false;
         let isDarkMode = true;
         let parseTimeout = undefined;
+        let parseRequestId = 0;
         let currentGraph = undefined;
         let graphBounds = undefined;
         let collapsedNodeIds = new Set();
@@ -1047,9 +1075,15 @@ export class VisualizerPanel {
                     handleInit(message.context);
                     break;
                 case 'visualize':
+                    if (message.requestId !== undefined && message.requestId !== parseRequestId) {
+                        break;
+                    }
                     handleVisualize(message.data);
                     break;
                 case 'parseError':
+                    if (message.requestId !== undefined && message.requestId !== parseRequestId) {
+                        break;
+                    }
                     handleParseError(message);
                     break;
             }
@@ -1115,13 +1149,15 @@ export class VisualizerPanel {
         });
 
         function requestParse(content) {
+            const requestId = ++parseRequestId;
             setStatus('unknown', 'Parsing');
             showPlaceholder('Parsing data', 'Building graph nodes and relationships...');
             vscode.postMessage({
                 command: 'parse',
                 content: content,
                 fileName: currentFileName,
-                fileType: currentFileType
+                fileType: currentFileType,
+                requestId: requestId
             });
         }
 

@@ -7,4 +7,5 @@ export { EscapePanel } from './escapePanel';
 export { FormatterPanel } from './formatterPanel';
 export { JWTPanel } from './jwtPanel';
 export { UUIDPanel } from './uuidPanel';
+export { UtilityPanel } from './utilityPanel';
 export { VisualizerPanel } from './visualizerPanel';

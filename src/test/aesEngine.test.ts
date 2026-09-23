@@ -197,6 +197,15 @@ suite('AES Engine – padding schemes', () => {
         const decrypted = decryptAes(encrypted, settings);
         assert.deepStrictEqual(decrypted, aligned);
     });
+
+    test('ZeroPadding: trailing NUL bytes in plaintext are stripped on decrypt', () => {
+        const payload = Buffer.from([0x41, 0x42, 0x00, 0x00]);
+        const settings = customKeySettings(256, 'CBC');
+        settings.padding = 'ZeroPadding';
+        const encrypted = encryptAes(payload, settings);
+        const decrypted = decryptAes(encrypted, settings);
+        assert.deepStrictEqual(decrypted, Buffer.from([0x41, 0x42]));
+    });
 });
 
 // ─── AES round-trip: all hash algorithms ─────────────────────────────────────

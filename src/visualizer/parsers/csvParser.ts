@@ -6,7 +6,7 @@ export class CSVParser implements Parser {
         try {
             const result: ParseResult<any> = parse(content, {
                 header: true,
-                dynamicTyping: true,
+                dynamicTyping: false,
                 skipEmptyLines: true,
                 transformHeader: (header: string) => header.trim(), // Remove whitespace from headers
             });

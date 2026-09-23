@@ -10,6 +10,10 @@ suite('detectDataFormat – file extension', () => {
         assert.strictEqual(detectDataFormat('', 'data.json'), 'json');
     });
 
+    test('detects .jsonc by extension', () => {
+        assert.strictEqual(detectDataFormat('', 'settings.jsonc'), 'json');
+    });
+
     test('detects .yaml by extension', () => {
         assert.strictEqual(detectDataFormat('', 'api.yaml'), 'yaml');
     });
@@ -160,6 +164,11 @@ suite('JSONParser', () => {
     test('throws on empty string', () => {
         assert.throws(() => parser.parse(''), /JSON parsing failed/);
     });
+
+    test('parses JSONC comments and trailing commas', () => {
+        const result = parser.parse('{\n  // comment\n  "a": 1,\n}');
+        assert.deepStrictEqual(result, { a: 1 });
+    });
 });
 
 // ─── YAMLParser ──────────────────────────────────────────────────────────────
@@ -221,25 +230,25 @@ suite('XMLParserImpl', () => {
 
     test('parses element attributes with @_ prefix', () => {
         const result = parser.parse('<item id="42" active="true"/>');
-        assert.strictEqual(result.item['@_id'], 42);
+        assert.strictEqual(result.item['@_id'], '42');
     });
 
     test('parses text node as #text', () => {
         const result = parser.parse('<root><item id="1">Apple</item></root>');
         assert.strictEqual(result.root.item['#text'], 'Apple');
-        assert.strictEqual(result.root.item['@_id'], 1);
+        assert.strictEqual(result.root.item['@_id'], '1');
     });
 
     test('parses nested elements', () => {
         const result = parser.parse('<root><person><name>Bob</name><age>25</age></person></root>');
         assert.strictEqual(result.root.person.name, 'Bob');
-        assert.strictEqual(result.root.person.age, 25);
+        assert.strictEqual(result.root.person.age, '25');
     });
 
-    test('parses numeric values from attributes', () => {
-        const result = parser.parse('<data count="10" ratio="3.14"/>');
-        assert.strictEqual(result.data['@_count'], 10);
-        assert.strictEqual(result.data['@_ratio'], 3.14);
+    test('keeps attribute values as strings so codes are not coerced', () => {
+        const result = parser.parse('<data count="10" zip="01234"/>');
+        assert.strictEqual(result.data['@_count'], '10');
+        assert.strictEqual(result.data['@_zip'], '01234');
     });
 
     test('strips namespace prefixes', () => {
@@ -276,16 +285,16 @@ suite('CSVParser', () => {
         assert.deepStrictEqual(result[1], { name: 'Banana', color: 'Yellow' });
     });
 
-    test('parses numeric values via dynamicTyping', () => {
-        const result = parser.parse('id,price\n1,9.99\n2,14.50');
-        assert.strictEqual(result[0].id, 1);
-        assert.strictEqual(result[0].price, 9.99);
+    test('keeps numeric-looking CSV values as strings', () => {
+        const result = parser.parse('id,zip\n1,01234\n2,14.50');
+        assert.strictEqual(result[0].id, '1');
+        assert.strictEqual(result[0].zip, '01234');
     });
 
-    test('parses boolean values via dynamicTyping', () => {
+    test('keeps boolean-looking CSV values as strings', () => {
         const result = parser.parse('name,active\nAlice,true\nBob,false');
-        assert.strictEqual(result[0].active, true);
-        assert.strictEqual(result[1].active, false);
+        assert.strictEqual(result[0].active, 'true');
+        assert.strictEqual(result[1].active, 'false');
     });
 
     test('trims whitespace from headers', () => {
@@ -317,7 +326,7 @@ suite('CSVParser', () => {
         const headers = Array.from({ length: 10 }, (_, i) => `col${i}`).join(',');
         const values = Array.from({ length: 10 }, (_, i) => i).join(',');
         const result = parser.parse(`${headers}\n${values}`);
-        assert.strictEqual(result[0].col9, 9);
+        assert.strictEqual(result[0].col9, '9');
     });
 });
 
@@ -694,8 +703,8 @@ suite('Parser error handling', () => {
         assert.throws(() => new JSONParser().parse('{"key":'), /JSON parsing failed/);
     });
 
-    test('JSONParser: throws on trailing comma', () => {
-        assert.throws(() => new JSONParser().parse('{"a":1,}'), /JSON parsing failed/);
+    test('JSONParser: accepts a trailing comma as JSONC', () => {
+        assert.deepStrictEqual(new JSONParser().parse('{"a":1,}'), { a: 1 });
     });
 
     test('YAMLParser: throws on invalid indentation mix', () => {
@@ -718,5 +727,20 @@ suite('Parser error handling', () => {
 
     test('RAMLParser: throws for pure string content', () => {
         assert.throws(() => new RAMLParser().parse('just a bare string'), /RAML parsing failed/);
+    });
+
+    test('jsonToGraph treats circular objects as leaves instead of overflowing', () => {
+        const cyclic: Record<string, unknown> = {};
+        cyclic.self = cyclic;
+        const graph = DataTransformer.jsonToGraph(cyclic);
+        assert.strictEqual(graph.exceededLimit, false);
+        assert.ok(graph.nodes.some((node) => node.rows.some((row) => row.value === '[Circular]')));
+    });
+
+    test('jsonToNodes treats circular objects as leaves', () => {
+        const cyclic: Record<string, unknown> = { name: 'loop' };
+        cyclic.self = cyclic;
+        const node = DataTransformer.jsonToNodes(cyclic);
+        assert.ok(node.children?.some((child) => child.value === '[Circular]'));
     });
 });

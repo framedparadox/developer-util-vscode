@@ -236,12 +236,12 @@ suite('DataConverter – CSV source', () => {
         assert.strictEqual(parsed[0].name, 'Apple');
     });
 
-    test('CSV → JSON infers numeric types', () => {
-        const result = converter.convert('id,price\n1,9.99', 'csv', 'json');
+    test('CSV → JSON keeps numeric-looking values as strings', () => {
+        const result = converter.convert('id,zip\n1,01234', 'csv', 'json');
         assert.ok(result.success);
         const parsed = JSON.parse(result.output!);
-        assert.strictEqual(parsed[0].id, 1);
-        assert.strictEqual(parsed[0].price, 9.99);
+        assert.strictEqual(parsed[0].id, '1');
+        assert.strictEqual(parsed[0].zip, '01234');
     });
 
     test('CSV → YAML produces list output', () => {
@@ -398,10 +398,17 @@ suite('DataConverter – edge cases', () => {
     });
 
     test('unsupported source format returns error', () => {
-        const result = converter.convert('some content', 'json', 'json');
-        // This actually works; testing unsupported is done via TypeScript at compile time.
-        // Verify that a valid source doesn't erroneously fail.
-        assert.ok(result !== undefined);
+        const result = converter.convert('some content', 'toml' as any, 'json');
+        assert.strictEqual(result.success, false);
+        assert.match(result.error ?? '', /Unsupported source format/);
+    });
+
+    test('XML tag sanitization does not collide sibling keys', () => {
+        const result = converter.convert(JSON.stringify({ 'a b': 1, a_b: 2, xml: 3 }), 'json', 'xml');
+        assert.ok(result.success, result.error);
+        assert.match(result.output!, /<a_b>1<\/a_b>/);
+        assert.match(result.output!, /<a_b_2>2<\/a_b_2>/);
+        assert.match(result.output!, /<_xml>3<\/_xml>/);
     });
 
     test('rejects input larger than 10 MB', () => {
