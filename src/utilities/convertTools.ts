@@ -247,6 +247,20 @@ export function formatMac(value: string, style: string, letterCase: string): str
     return letterCase === 'lower' ? formatted.toLowerCase() : formatted.toUpperCase();
 }
 
+export function generateMac(prefix: string, style: string, letterCase: string): string {
+    const known = prefix.replace(/[^0-9a-fA-F]/g, '');
+    if (known.length > 10) {
+        throw new Error('Prefix must be at most 10 hex digits.');
+    }
+    let hex = known + crypto.randomBytes(6).toString('hex').slice(known.length);
+    if (!known) {
+        // Random addresses are locally administered (bit 1 set) and unicast (bit 0 clear).
+        const first = (parseInt(hex.slice(0, 2), 16) & 0xfc) | 0x02;
+        hex = first.toString(16).padStart(2, '0') + hex.slice(2);
+    }
+    return formatMac(hex, style, letterCase);
+}
+
 export function compareSemver(left: string, right: string): number {
     return compareVersions(parseSemver(left), parseSemver(right));
 }
@@ -1088,9 +1102,9 @@ export const convertTools: UtilityTool[] = [
         icon: 'mac.svg',
         defaultVisible: true,
         category: 'Convert',
-        summary: 'Reformat 12 hex digits as colon, hyphen, Cisco dot, or plain text.',
+        summary: 'Reformat 12 hex digits as colon, hyphen, Cisco dot, or plain text, or generate random MAC addresses. With no prefix, generated addresses are locally administered unicast.',
         fields: [
-            { id: 'input', label: 'MAC address', kind: 'text', placeholder: 'aa-bb-cc-dd-ee-ff' },
+            { id: 'input', label: 'MAC address or prefix', kind: 'text', placeholder: 'aa-bb-cc-dd-ee-ff' },
             {
                 id: 'style',
                 label: 'Style',
@@ -1114,10 +1128,18 @@ export const convertTools: UtilityTool[] = [
                 defaultValue: 'upper',
             },
         ],
-        actions: [{ id: 'format', label: 'Format' }],
-        run: (_action, values) => ({
-            output: formatMac(values.input ?? '', choice(values.style, 'style', ['colon', 'hyphen', 'dot', 'plain'], 'colon'), choice(values.case, 'case', ['upper', 'lower'], 'upper')),
-        }),
+        actions: [
+            { id: 'format', label: 'Format' },
+            { id: 'generate', label: 'Generate 10' },
+        ],
+        run: (action, values) => {
+            const style = choice(values.style, 'style', ['colon', 'hyphen', 'dot', 'plain'], 'colon');
+            const letterCase = choice(values.case, 'case', ['upper', 'lower'], 'upper');
+            if (action === 'generate') {
+                return { output: Array.from({ length: 10 }, () => generateMac(values.input ?? '', style, letterCase)).join('\n') };
+            }
+            return { output: formatMac(values.input ?? '', style, letterCase) };
+        },
     },
     {
         id: 'semver',

@@ -1,7 +1,7 @@
 {
     "name": "dev-x",
     "displayName": "Developer Utility Tools",
-    "description": "Offline developer utilities for encoding, hashing, tokens, time, network, text, formatting, conversion, visualization, and certificates.",
+    "description": "Offline developer utilities for encoding, hashing, tokens, time, network, text, formatting, conversion, code generation, visualization, and certificates.",
     "version": "0.0.5",
     "publisher": "framedparadox",
     "license": "MIT",
@@ -28,7 +28,18 @@
         "url",
         "ulid",
         "totp",
-        "semver"
+        "semver",
+        "toml",
+        "bcrypt",
+        "curl",
+        "docker-compose",
+        "json-diff",
+        "json-schema",
+        "crc32",
+        "csp",
+        "unit-converter",
+        "timezone",
+        "mock-data"
     ],
     "repository": {
         "type": "git",
@@ -452,6 +463,166 @@
                 "category": "Developer Utilities"
             },
             {
+                "command": "devx.bcryptTool",
+                "title": "Bcrypt",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.passwordStrengthTool",
+                "title": "Password Strength",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.checksumTool",
+                "title": "CRC / Checksum",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cipherTool",
+                "title": "Classic Ciphers",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.obfuscateTool",
+                "title": "String Obfuscator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.validatorTool",
+                "title": "IBAN / Card / ISBN Validator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.mathTool",
+                "title": "Math Evaluator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.percentageTool",
+                "title": "Percentage Calculator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.unitsTool",
+                "title": "Unit Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.etaTool",
+                "title": "ETA Calculator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.dateCalcTool",
+                "title": "Date Calculator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.timeZoneTool",
+                "title": "Time Zone Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.stringEscapeTool",
+                "title": "String Escape",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.numeronymTool",
+                "title": "Numeronym Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.morseTool",
+                "title": "Morse Code",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.hexDumpTool",
+                "title": "Hex Dump",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cheatsheetTool",
+                "title": "Cheatsheets",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonDiffTool",
+                "title": "JSON Diff",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonCsvTool",
+                "title": "JSON / CSV",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.tomlTool",
+                "title": "TOML Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonToCodeTool",
+                "title": "JSON to Code",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.jsonToolkitTool",
+                "title": "JSON Toolkit",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.dockerComposeTool",
+                "title": "Docker Run to Compose",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.curlTool",
+                "title": "cURL Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.listConverterTool",
+                "title": "List Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.mockDataTool",
+                "title": "Mock Data Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.metaTagsTool",
+                "title": "Meta Tag Generator",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.safeLinkTool",
+                "title": "Safe Link Decoder",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.emailNormalizeTool",
+                "title": "Email Normalizer",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.svgPlaceholderTool",
+                "title": "SVG Placeholder",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.ipv4RangeTool",
+                "title": "IPv4 Range / Converter",
+                "category": "Developer Utilities"
+            },
+            {
+                "command": "devx.cspTool",
+                "title": "CSP Analyzer",
+                "category": "Developer Utilities"
+            },
+            {
                 "command": "devx.configureSidebar",
                 "title": "Configure Sidebar",
                 "category": "Developer Utilities",
@@ -519,11 +690,13 @@
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
+        "bcryptjs": "^3.0.3",
         "d3": "^7.9.0",
         "fast-xml-parser": "^5.9.3",
         "js-yaml": "^4.3.0",
         "papaparse": "^5.5.4",
-        "qrcode": "^1.5.4"
+        "qrcode": "^1.5.4",
+        "smol-toml": "^1.9.0"
     },
     "overrides": {
         "diff": "^8.0.4",

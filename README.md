@@ -5,7 +5,7 @@
 <h1 align="center">Developer Utility Tools</h1>
 
 <p align="center">
-  Offline developer utilities for encoding, hashing, tokens, time, network, text, formatting, conversion, visualization, and certificates. Open any tool from the Activity Bar or the Command Palette. Tool input stays in the extension host.
+  Offline developer utilities for encoding, hashing, tokens, time, network, text, formatting, conversion, code generation, visualization, and certificates. Open any tool from the Activity Bar or the Command Palette. Tool input stays in the extension host.
 </p>
 
 <p align="center">
@@ -92,6 +92,15 @@
 - **HTML Formatter** formats, minifies, or strips tags.
 - **Markdown Preview** renders headings, lists, quotes, fences, emphasis, and http(s) or mailto links. Raw HTML is escaped.
 - **Gitignore Starter** inserts a short ignore list for Node, Python, Go, Java, VS Code, macOS, or Windows.
+- **JSON Diff** lists added, removed, and changed values by JSONPath, or emits an RFC 6902 JSON Patch.
+- **JSON / CSV** converts JSON arrays to CSV with dotted column names for nested objects, and back.
+- **TOML Converter** converts TOML to JSON or YAML and JSON or YAML to TOML. Integers beyond 2^53 stay exact.
+- **JSON to Code** infers Go structs, Rust serde structs, Python dataclasses, Java records, C# classes, Kotlin data classes, Swift Codable structs, Zod schemas, or JSON Schema.
+- **JSON Toolkit** sorts keys recursively, flattens to dotted keys, unflattens, lists key paths, and wraps or unwraps JSON string literals.
+- **Docker Run to Compose** turns a `docker run` command into a Compose service and lists any flags it did not convert.
+- **cURL Converter** turns a curl command into fetch, axios, Python requests, Go net/http, HTTPie, or PowerShell code. Nothing is sent.
+- **List Converter** joins lines as CSV, SQL `IN (...)`, a JSON array, Markdown, or HTML, with optional quoting, sorting, and deduplication.
+- **Mock Data Generator** builds fictional rows from a `name:type` schema as JSON, NDJSON, CSV, SQL `INSERT`, or YAML.
 
 ### Encode
 
@@ -105,6 +114,7 @@
 - **Gzip Compress** gzips text to Base64 and gunzips it. Expanded output is limited to 10 MB.
 - **Data URI** builds or reads a text data URI.
 - **Query String** parses a query to JSON and builds one from a flat JSON object.
+- **Hex Dump** shows an xxd-style dump and rebuilds text from a dump or hex bytes.
 
 ### Crypto
 
@@ -119,6 +129,12 @@
 - **Basic Auth Header** builds an HTTP Basic authorization header.
 - **JWT Debugger** decodes the header and payload and checks numeric `exp` and `nbf` claims. It does not verify signatures.
 - **JWT Signer** creates an HS256, HS384, or HS512 token locally. Signing does not mean a third party issued the token.
+- **Bcrypt** creates `$2b$` hashes and verifies `$2a$`, `$2b$`, and `$2y$` hashes. Only the first 72 bytes of a password count.
+- **Password Strength** estimates entropy and guessing time, and flags common passwords, repeats, sequences, keyboard patterns, and years.
+- **CRC / Checksum** prints CRC-32, CRC-32C, CRC-16 (ARC, MODBUS, CCITT-FALSE, XMODEM), Adler-32, FNV-1a, MurmurHash3, and djb2.
+- **Classic Ciphers** applies ROT13, ROT47, ROT5, ROT18, Caesar, Atbash, Vigenère, XOR, or reverse. These are not encryption.
+- **String Obfuscator** masks secrets while keeping the first and last characters visible.
+- **IBAN / Card / ISBN Validator** checks IBAN mod-97 and length, Luhn card numbers, ISBN-10/13, and EAN/UPC check digits. It does not confirm that an account or card exists.
 
 ### Identifiers
 
@@ -139,11 +155,21 @@
 - **Chmod Calculator** converts octal, symbolic, and `u=rwx,g=rx,o=r` modes, including setuid, setgid, and sticky bits.
 - **IPv4 Subnet** calculates the mask, network, broadcast, and usable hosts. A bare address also converts to decimal and hex.
 - **IPv6 ULA** generates an RFC 4193-style local prefix.
-- **MAC Address** reformats 12 hex digits.
+- **MAC Address** reformats 12 hex digits and generates random locally administered addresses, optionally with a vendor prefix.
 - **SemVer Calculator** compares versions, bumps major, minor, or patch, and tests `=`, `>`, `>=`, `<`, `<=`, `^`, `~`, `x`, and `||`.
 - **CSS Units** converts px and rem and simplifies an aspect ratio.
 - **Byte Units** shows decimal and binary byte units.
 - **Roman Numerals** converts integers from 1 to 3999.
+- **Date Calculator** measures the difference between two dates, including business days, or adds and subtracts durations.
+- **Time Zone Converter** shows a moment, or a wall-clock time in a source zone, across IANA time zones.
+- **IPv4 Range / Converter** converts an address to decimal, hex, binary, IPv6-mapped, and reverse DNS forms, turns a range into CIDR blocks, and expands small CIDRs.
+
+### Math
+
+- **Math Evaluator** evaluates expressions line by line with variables, functions, bitwise operators, and hex or binary literals. It parses the input; it does not execute code.
+- **Percentage Calculator** shows X% of Y, percent change and difference, increases, decreases, and ratios.
+- **Unit Converter** converts length, mass, temperature, time, speed, area, volume, data, pressure, energy, and angle units.
+- **ETA Calculator** estimates the finish time of a job from the work done and the time elapsed.
 
 ### Text
 
@@ -156,6 +182,10 @@
 - **Lorem Ipsum** generates words, sentences, or paragraphs.
 - **ASCII / Code Points** searches the ASCII table or lists code points.
 - **NATO Phonetic** spells letters and digits.
+- **String Escape** escapes and unescapes text for JSON, JavaScript, Java, C#, C, Python, Go, YAML, regex, POSIX shell, PowerShell, cmd, SQL, CSV, XML, and Markdown.
+- **Numeronym Generator** turns words into numeronyms such as i18n and k8s.
+- **Morse Code** encodes and decodes International Morse code.
+- **Cheatsheets** is a searchable quick reference for Git, regex, Docker, kubectl, Vim, and HTTP.
 
 ### Web
 
@@ -168,6 +198,11 @@
 - **Key Codes** shows `key`, `code`, `keyCode`, location, and modifiers for a key you press.
 - **Device Info** shows platform, CPU, memory, Node, and VS Code version. User name and home directory are omitted.
 - **CORS Headers** drafts `Access-Control-Allow-*` lines.
+- **Meta Tag Generator** writes SEO, Open Graph, and Twitter card tags with escaped values.
+- **Safe Link Decoder** unwraps Microsoft Defender Safe Links, Proofpoint URL Defense v1 to v3, and Google, Facebook, and LinkedIn redirects without opening them.
+- **Email Normalizer** lowercases addresses, strips `+tags`, removes Gmail dots, and maps alias domains so duplicates are easy to find.
+- **SVG Placeholder** builds a placeholder image as SVG, a data URI, or a CSS background.
+- **CSP Analyzer** lists Content-Security-Policy directives, flags common weaknesses, and offers starter policies.
 
 ### Certificates
 
@@ -201,7 +236,7 @@ New tools are visible by default. Certificate Tools, Certificate Expiry Checker,
 <summary>Requirements</summary>
 
 - VS Code 1.105.0 or later
-- No extra runtime. Gzip, hashes, keys, and QR codes use the editor's Node runtime and the bundled `qrcode` library.
+- No extra runtime. Gzip, hashes, keys, and QR codes use the editor's Node runtime. QR codes, bcrypt, and TOML use the bundled `qrcode`, `bcryptjs`, and `smol-toml` libraries.
 
 </details>
 

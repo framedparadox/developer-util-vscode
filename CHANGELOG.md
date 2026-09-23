@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Added the offline utility catalog: URL and HTML encoding, hex and binary, Base32 and Base58, Unicode escapes, punycode, gzip, data URIs, query strings, hashes, HMAC, passwords, tokens, scrypt, key pairs, TOTP, Basic auth, JWT signing, ULID, Nano ID, Snowflake IDs, timestamps, number bases, color, contrast, case, slugs, cron, chmod, IPv4 subnets, IPv6 ULA prefixes, MAC addresses, SemVer, CSS units, byte units, Roman numerals, regex, globs, text diff, text statistics, line tools, lorem ipsum, Markdown preview, ASCII, NATO spelling, JSONPath, JSON to TypeScript, env/INI/properties, CSS, HTML, URL and user-agent parsing, MIME types, HTTP status codes, QR codes, random ports, key codes, device info, gitignore starters, and CORS header drafts.
 - Added a sidebar filter so the full tool list stays searchable.
+- Added 32 tools found in IT-Tools, DevToys, CyberChef, and transform.tools but missing here: JSON Diff (with JSON Patch output), JSON / CSV, TOML Converter, JSON to Code (Go, Rust, Python, Java, C#, Kotlin, Swift, Zod, JSON Schema), JSON Toolkit, Docker Run to Compose, cURL Converter, List Converter, Mock Data Generator, Math Evaluator, Percentage Calculator, Unit Converter, ETA Calculator, Date Calculator, Time Zone Converter, Bcrypt, Password Strength, CRC / Checksum, Classic Ciphers, String Obfuscator, IBAN / Card / ISBN Validator, String Escape, Numeronym Generator, Morse Code, Hex Dump, Cheatsheets, Meta Tag Generator, Safe Link Decoder, Email Normalizer, SVG Placeholder, IPv4 Range / Converter, and CSP Analyzer.
+- Added random MAC address generation to MAC Address.
 
 ### Fixed
 
