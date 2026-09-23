@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.0.5] - Unreleased
 
+### Added
+
+- Added the offline utility catalog: URL and HTML encoding, hex and binary, Base32 and Base58, Unicode escapes, punycode, gzip, data URIs, query strings, hashes, HMAC, passwords, tokens, scrypt, key pairs, TOTP, Basic auth, JWT signing, ULID, Nano ID, Snowflake IDs, timestamps, number bases, color, contrast, case, slugs, cron, chmod, IPv4 subnets, IPv6 ULA prefixes, MAC addresses, SemVer, CSS units, byte units, Roman numerals, regex, globs, text diff, text statistics, line tools, lorem ipsum, Markdown preview, ASCII, NATO spelling, JSONPath, JSON to TypeScript, env/INI/properties, CSS, HTML, URL and user-agent parsing, MIME types, HTTP status codes, QR codes, random ports, key codes, device info, gitignore starters, and CORS header drafts.
+- Added a sidebar filter so the full tool list stays searchable.
+
 ### Fixed
 
 - Stopped circular YAML/JSON from overflowing the visualizer stack.
