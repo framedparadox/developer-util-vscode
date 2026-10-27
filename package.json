@@ -29,7 +29,7 @@
     "bugs": {
         "url": "https://github.com/framedparadox/developer-util-vscode/issues"
     },
-    "homepage": "https://github.com/framedparadox/developer-util-vscode#readme",
+    "homepage": "https://framedparadox.github.io/developer-util-vscode/",
     "engines": {
         "vscode": "^1.105.0"
     },
