@@ -29,7 +29,7 @@ export class DataConverterPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -40,7 +40,6 @@ export class DataConverterPanel {
             const panel = vscode.window.createWebviewPanel('dataConverter', 'Data Converter', vscode.ViewColumn.One, {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [extensionUri],
             });
 
             panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'converter.svg');
@@ -73,7 +72,9 @@ export class DataConverterPanel {
                     detectedFormat,
                 });
             } catch (error) {
-                vscode.window.showErrorMessage(`Failed to load file: ${error instanceof Error ? error.message : String(error)}`);
+                vscode.window.showErrorMessage(
+                    `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
+                );
             }
         }
     }
@@ -88,7 +89,7 @@ export class DataConverterPanel {
 
         if (result.success) {
             vscode.window.showInformationMessage(
-                `Converted ${sourceFormat.toUpperCase()} to ${targetFormat.toUpperCase()} in ${result.metadata.conversionTime}ms`
+                `Converted ${sourceFormat.toUpperCase()} to ${targetFormat.toUpperCase()} in ${result.metadata.conversionTime}ms`,
             );
         } else {
             vscode.window.showErrorMessage(`Conversion failed: ${result.error}`);
@@ -109,7 +110,7 @@ export class DataConverterPanel {
     private _getWebviewContent(): string {
         const nonce = this.getNonce();
         const webview = this._panel.webview;
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -365,8 +366,13 @@ export class DataConverterPanel {
 <body>
     <div class="header">
         <h1>
-            <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3.5" width="7.5" height="7.5" rx="1.5" fill="#ce9178" fill-opacity="0.18" stroke="#ce9178" stroke-width="1.6"/>
+                <rect x="13.5" y="13" width="7.5" height="7.5" rx="1.5" fill="#ce9178" fill-opacity="0.18" stroke="#ce9178" stroke-width="1.6"/>
+                <path d="M14 7.25h2.75a2 2 0 0 1 2 2v3.25" stroke="#ce9178" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16.75 10.5l2 2.25 2-2.25" stroke="#ce9178" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 16.75H7.25a2 2 0 0 1-2-2V11.5" stroke="#ce9178" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7.25 13.75l-2-2.25-2 2.25" stroke="#ce9178" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Data Converter
         </h1>
@@ -525,10 +531,14 @@ export class DataConverterPanel {
         }
 
         function showError(message) {
-            outputContainer.innerHTML = \`<div class="error">❌ \${message}</div>\`;
+            const error = document.createElement('div');
+            error.className = 'error';
+            error.textContent = '❌ ' + String(message || 'Conversion failed');
+            outputContainer.replaceChildren(error);
             downloadBtn.style.display = 'none';
             copyBtn.style.display = 'none';
             currentOutput = '';
+            outputSize.textContent = '0 B';
         }
 
         function showOutput(output) {

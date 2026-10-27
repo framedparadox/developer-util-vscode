@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { DataConverter } from '../converter/dataConverter';
+import { DataConverter, MAX_CONVERSION_INPUT_BYTES } from '../converter/dataConverter';
 
 // ─── detectFormat (static) ────────────────────────────────────────────────────
 
@@ -402,5 +402,44 @@ suite('DataConverter – edge cases', () => {
         // This actually works; testing unsupported is done via TypeScript at compile time.
         // Verify that a valid source doesn't erroneously fail.
         assert.ok(result !== undefined);
+    });
+
+    test('rejects input larger than 10 MB', () => {
+        const converter = new DataConverter();
+        const result = converter.convert(' '.repeat(MAX_CONVERSION_INPUT_BYTES + 1), 'json', 'json');
+        assert.strictEqual(result.success, false);
+        assert.match(result.error ?? '', /10 MB limit/);
+    });
+
+    test('rejects circular YAML aliases', () => {
+        const converter = new DataConverter();
+        const result = converter.convert('root: &root\n  self: *root', 'yaml', 'json');
+        assert.strictEqual(result.success, false);
+        assert.match(result.error ?? '', /Circular references/);
+    });
+});
+
+suite('DataConverter – prototype-polluting keys', () => {
+    const converter = new DataConverter();
+
+    test('preserves a __proto__ key from YAML instead of dropping it', () => {
+        const result = converter.convert('__proto__:\n  polluted: true\na: 1', 'yaml', 'json');
+        assert.ok(result.success, result.error);
+        const parsed = JSON.parse(result.output!);
+        // The data must survive the round-trip as an own property.
+        assert.ok(Object.prototype.hasOwnProperty.call(parsed, '__proto__'));
+        assert.strictEqual(parsed.a, 1);
+    });
+
+    test('does not pollute the global Object prototype', () => {
+        converter.convert('__proto__:\n  polluted: true', 'yaml', 'json');
+        assert.strictEqual(({} as Record<string, unknown>).polluted, undefined);
+    });
+
+    test('preserves a __proto__ key when converting YAML → YAML', () => {
+        const result = converter.convert('__proto__:\n  nested: value', 'yaml', 'yaml');
+        assert.ok(result.success, result.error);
+        assert.match(result.output!, /__proto__:/);
+        assert.match(result.output!, /nested: value/);
     });
 });

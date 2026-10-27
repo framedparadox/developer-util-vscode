@@ -37,7 +37,7 @@ export class UUIDPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -98,8 +98,28 @@ export class UUIDPanel {
     }
 
     private generateBulk(count: number, type: string) {
+        // Never trust the count coming from the webview: a crafted or buggy
+        // message could send a non-integer or an enormous value and freeze the
+        // extension host. Clamp to the same 1–1000 range the UI enforces.
+        if (!Number.isInteger(count) || count < 1) {
+            this._panel.webview.postMessage({
+                command: 'error',
+                message: 'Bulk count must be an integer between 1 and 1000.',
+            });
+            return;
+        }
+        const safeCount = Math.min(count, 1000);
+
+        if (type !== 'v1' && type !== 'v4' && type !== 'v7') {
+            this._panel.webview.postMessage({
+                command: 'error',
+                message: `Unsupported UUID type: ${String(type)}`,
+            });
+            return;
+        }
+
         const uuids: string[] = [];
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < safeCount; i++) {
             switch (type) {
                 case 'v1':
                     uuids.push(this.uuidv1());
@@ -115,7 +135,7 @@ export class UUIDPanel {
         this._panel.webview.postMessage({
             command: 'bulkResult',
             uuids: uuids.join('\n'),
-            count: count,
+            count: safeCount,
             type: type,
         });
     }
@@ -165,7 +185,8 @@ export class UUIDPanel {
 
         const randBytes = crypto.randomBytes(10);
         // version nibble (7) occupies top 4 bits of the 3rd group
-        const ver = ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
+        const ver =
+            ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
         // variant bits (10xx) for the 4th group
         randBytes[2] = (randBytes[2] & 0x3f) | 0x80;
         const variant = randBytes.toString('hex', 2, 4);
@@ -188,7 +209,7 @@ export class UUIDPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -331,15 +352,25 @@ export class UUIDPanel {
                     margin: 10px 0;
                     padding: 8px;
                 }
+                .error {
+                    color: var(--vscode-errorForeground);
+                    margin: 10px 0;
+                    padding: 8px;
+                    background-color: var(--vscode-inputValidation-errorBackground);
+                    border: 1px solid var(--vscode-inputValidation-errorBorder);
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <h2>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                        <path d="M12 6v6l4 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <circle cx="12" cy="12" r="3"/>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#c586c0" stroke-width="1.7" stroke-linecap="round">
+                        <path d="M5 9.2a8 8 0 0 1 14 0"/>
+                        <path d="M7.6 10.5a5 5 0 0 1 8.8 0v2.3"/>
+                        <path d="M10.2 11.5a2.4 2.4 0 0 1 4 1.8c0 2.3-.3 4-1 5.6"/>
+                        <path d="M12 13.2v3.2c0 1.3-.3 2.4-.8 3.4"/>
+                        <path d="M7.4 14.4c.3 2.2-.1 4-1.1 5.6"/>
+                        <path d="M16.4 15.6a12 12 0 0 1-.9 4.2"/>
                     </svg>
                     UUID Generator
                 </h2>
@@ -470,6 +501,9 @@ export class UUIDPanel {
                             bulkOutput.value = message.uuids;
                             showSuccess(\`Generated \${message.count} UUIDs (\${message.type})\`);
                             break;
+                        case 'error':
+                            showError(message.message);
+                            break;
                     }
                 });
 
@@ -479,6 +513,11 @@ export class UUIDPanel {
                     setTimeout(() => {
                         messageDiv.textContent = '';
                     }, 3000);
+                }
+
+                function showError(msg) {
+                    messageDiv.className = 'error';
+                    messageDiv.textContent = msg || 'An error occurred.';
                 }
             </script>
         </body>

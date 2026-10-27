@@ -1,5 +1,1 @@
-export {
-    DevXToolsProvider,
-    ConfigSidebarPanel,
-    getGeneralPreferences,
-} from './devxToolsProvider';
+export { DevXToolsProvider, ConfigSidebarPanel, getGeneralPreferences } from './devxToolsProvider';

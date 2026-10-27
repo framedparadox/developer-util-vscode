@@ -3,7 +3,19 @@
 'use strict';
 
 const path = require('path');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+
+const d3SourcePath = path.resolve(path.dirname(require.resolve('d3')), '../dist/d3.min.js');
+
+class WebviewAssetsPlugin {
+    apply(compiler) {
+        compiler.hooks.thisCompilation.tap('WebviewAssetsPlugin', (compilation) => {
+            compilation.emitAsset(
+                'd3.min.js',
+                new compiler.webpack.sources.RawSource(compiler.inputFileSystem.readFileSync(d3SourcePath)),
+            );
+        });
+    }
+}
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -19,6 +31,7 @@ const extensionConfig = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'extension.js',
         libraryTarget: 'commonjs2',
+        clean: true,
     },
     externals: {
         vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
@@ -45,32 +58,9 @@ const extensionConfig = {
                     },
                 ],
             },
-            {
-                test: /\.tsx?$/,
-                exclude: /node_modules/,
-                use: [
-                    {
-                        loader: 'ts-loader',
-                        options: {
-                            transpileOnly: true,
-                            compilerOptions: {
-                                jsx: 'react',
-                                noEmit: false,
-                            },
-                        },
-                    },
-                ],
-            },
-            {
-                test: /\.css$/,
-                use: ['style-loader', 'css-loader'],
-            },
-            {
-                test: /\.ttf$/,
-                type: 'asset/resource',
-            },
         ],
     },
+    plugins: [new WebviewAssetsPlugin()],
     devtool: 'nosources-source-map',
     infrastructureLogging: {
         level: 'log', // enables logging required for problem matchers

@@ -3,37 +3,7 @@
  * Pure decode logic only – no VS Code dependency.
  */
 import * as assert from 'assert';
-
-// ─── Pure logic (mirrors JWTPanel.handleDecode) ───────────────────────────────
-
-interface JWTDecodeResult {
-    header: object;
-    payload: object;
-    signature: string;
-    isExpired: boolean;
-    expirationInfo: string;
-}
-
-function decodeJWT(token: string): JWTDecodeResult {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-        throw new Error('Invalid JWT token format. Expected 3 parts separated by dots.');
-    }
-
-    const header = JSON.parse(Buffer.from(parts[0], 'base64').toString('utf8'));
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-    const signature = parts[2];
-
-    let isExpired = false;
-    let expirationInfo = '';
-    if ((payload as any).exp) {
-        const expDate = new Date((payload as any).exp * 1000);
-        isExpired = expDate < new Date();
-        expirationInfo = `Expires: ${expDate.toLocaleString()} (${isExpired ? 'EXPIRED' : 'Valid'})`;
-    }
-
-    return { header, payload, signature, isExpired, expirationInfo };
-}
+import { decodeJWT } from '../panels/jwtPanel';
 
 // ─── Helper: build a JWT-style token from parts ───────────────────────────────
 
@@ -148,6 +118,17 @@ suite('JWTPanel – decodeJWT()', () => {
         const validHeader = Buffer.from('{"alg":"HS256"}').toString('base64url');
         const badPayload = Buffer.from('not json').toString('base64url');
         assert.throws(() => decodeJWT(`${validHeader}.${badPayload}.sig`));
+    });
+
+    test('throws when the exp claim is not numeric', () => {
+        const token = buildToken({ alg: 'HS256', typ: 'JWT' }, { exp: 'tomorrow' });
+        assert.throws(() => decodeJWT(token), /exp claim/);
+    });
+
+    test('throws when the payload is not a JSON object', () => {
+        const header = Buffer.from('{"alg":"HS256"}').toString('base64url');
+        const payload = Buffer.from('"text"').toString('base64url');
+        assert.throws(() => decodeJWT(`${header}.${payload}.sig`), /payload must be a JSON object/);
     });
 
     test('decodes token with empty payload object', () => {

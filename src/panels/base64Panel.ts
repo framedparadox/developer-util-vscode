@@ -1,6 +1,31 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
+export const MAX_BASE64_INPUT_BYTES = 10 * 1024 * 1024;
+
+export function decodeBase64(value: string): Buffer {
+    const normalized = value.replace(/\s+/g, '');
+    if (!normalized) {
+        return Buffer.alloc(0);
+    }
+    if (
+        normalized.length > Math.ceil((MAX_BASE64_INPUT_BYTES * 4) / 3) + 4 ||
+        normalized.length % 4 === 1 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) ||
+        normalized.slice(0, -2).includes('=')
+    ) {
+        throw new Error('Input must be valid Base64 data.');
+    }
+
+    const unpadded = normalized.replace(/=+$/, '');
+    const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, '=');
+    const decoded = Buffer.from(padded, 'base64');
+    if (decoded.toString('base64').replace(/=+$/, '') !== unpadded) {
+        throw new Error('Input must be valid Base64 data.');
+    }
+    return decoded;
+}
+
 export class Base64Panel {
     public static currentPanel: Base64Panel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -23,7 +48,7 @@ export class Base64Panel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -49,8 +74,14 @@ export class Base64Panel {
             let encoded: string;
             if (isFile) {
                 // Text is already base64 from file reader
+                if (text.length > Math.ceil((MAX_BASE64_INPUT_BYTES * 4) / 3) + 4) {
+                    throw new Error('File exceeds the 10 MB limit.');
+                }
                 encoded = text;
             } else {
+                if (Buffer.byteLength(text, 'utf8') > MAX_BASE64_INPUT_BYTES) {
+                    throw new Error('Text exceeds the 10 MB limit.');
+                }
                 encoded = Buffer.from(text, 'utf8').toString('base64');
             }
             this._panel.webview.postMessage({
@@ -67,7 +98,7 @@ export class Base64Panel {
 
     private handleDecode(text: string, isFile: boolean = false) {
         try {
-            const decoded = Buffer.from(text, 'base64').toString('utf8');
+            const decoded = decodeBase64(text).toString('utf8');
             this._panel.webview.postMessage({
                 command: 'decodeResult',
                 result: decoded,
@@ -95,7 +126,7 @@ export class Base64Panel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -255,10 +286,15 @@ export class Base64Panel {
         <body>
             <div class="container">
                 <h2>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                        <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                        <text x="7" y="16" font-size="6" font-weight="bold" fill="var(--vscode-editor-background)">01</text>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none">
+                        <path d="M13.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8.5L13.5 3z" fill="#3794ff" fill-opacity="0.16" stroke="#3794ff" stroke-width="1.6" stroke-linejoin="round"/>
+                        <path d="M13.5 3v4a1.5 1.5 0 0 0 1.5 1.5h4" stroke="#3794ff" stroke-width="1.6" stroke-linejoin="round"/>
+                        <rect x="7.6" y="11.4" width="2.2" height="2.2" rx="0.5" fill="#1e6bb8"/>
+                        <rect x="11" y="11.4" width="2.2" height="2.2" rx="0.5" fill="#3794ff" fill-opacity="0.45"/>
+                        <rect x="14.4" y="11.4" width="2.2" height="2.2" rx="0.5" fill="#1e6bb8"/>
+                        <rect x="7.6" y="14.8" width="2.2" height="2.2" rx="0.5" fill="#3794ff" fill-opacity="0.45"/>
+                        <rect x="11" y="14.8" width="2.2" height="2.2" rx="0.5" fill="#1e6bb8"/>
+                        <rect x="14.4" y="14.8" width="2.2" height="2.2" rx="0.5" fill="#3794ff" fill-opacity="0.45"/>
                     </svg>
                     Base64 Encode/Decode
                 </h2>
@@ -318,6 +354,7 @@ export class Base64Panel {
                 const fileMode = document.getElementById('fileMode');
                 const textModeBtn = document.getElementById('textModeBtn');
                 const fileModeBtn = document.getElementById('fileModeBtn');
+                const maxFileBytes = ${MAX_BASE64_INPUT_BYTES};
 
                 let currentMode = 'text';
                 let currentFile = null;
@@ -375,6 +412,13 @@ export class Base64Panel {
                 });
 
                 function handleFile(file) {
+                    if (file.size > maxFileBytes) {
+                        currentFile = null;
+                        fileInput.value = '';
+                        fileInfo.textContent = '';
+                        showError('File exceeds the 10 MB limit.');
+                        return;
+                    }
                     currentFile = file;
                     fileInfo.textContent = \`Selected: \${file.name} (\${formatFileSize(file.size)})\`;
                 }

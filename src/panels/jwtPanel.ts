@@ -1,6 +1,57 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
+export interface JWTDecodeResult {
+    header: Record<string, unknown>;
+    payload: Record<string, unknown>;
+    signature: string;
+    isExpired: boolean;
+    expirationInfo: string;
+}
+
+export function decodeJWT(token: string): JWTDecodeResult {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        throw new Error('Invalid JWT token format. Expected 3 parts separated by dots.');
+    }
+
+    const decodeSegment = (segment: string, fieldName: string): unknown => {
+        if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
+            throw new Error(`Invalid characters in JWT ${fieldName} segment.`);
+        }
+        return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+    };
+
+    const header = decodeSegment(parts[0], 'header');
+    const payload = decodeSegment(parts[1], 'payload');
+    if (!header || typeof header !== 'object' || Array.isArray(header)) {
+        throw new Error('JWT header must be a JSON object.');
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error('JWT payload must be a JSON object.');
+    }
+
+    let isExpired = false;
+    let expirationInfo = '';
+    const expiration = (payload as Record<string, unknown>).exp;
+    if (expiration !== undefined) {
+        if (typeof expiration !== 'number' || !Number.isFinite(expiration)) {
+            throw new Error('JWT exp claim must be a finite NumericDate value.');
+        }
+        const expDate = new Date(expiration * 1000);
+        isExpired = expDate < new Date();
+        expirationInfo = `Expires: ${expDate.toLocaleString()} (${isExpired ? 'EXPIRED' : 'Valid'})`;
+    }
+
+    return {
+        header: header as Record<string, unknown>,
+        payload: payload as Record<string, unknown>,
+        signature: parts[2],
+        isExpired,
+        expirationInfo,
+    };
+}
+
 export class JWTPanel {
     public static currentPanel: JWTPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -20,7 +71,7 @@ export class JWTPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -43,31 +94,15 @@ export class JWTPanel {
 
     private handleDecode(token: string) {
         try {
-            const parts = token.split('.');
-            if (parts.length !== 3) {
-                throw new Error('Invalid JWT token format. Expected 3 parts separated by dots.');
-            }
-
-            const header = JSON.parse(this.decodeSegment(parts[0], 'header'));
-            const payload = JSON.parse(this.decodeSegment(parts[1], 'payload'));
-            const signature = parts[2];
-
-            // Check expiration
-            let isExpired = false;
-            let expirationInfo = '';
-            if (payload.exp) {
-                const expDate = new Date(payload.exp * 1000);
-                isExpired = expDate < new Date();
-                expirationInfo = `Expires: ${expDate.toLocaleString()} (${isExpired ? 'EXPIRED' : 'Valid'})`;
-            }
+            const result = decodeJWT(token);
 
             this._panel.webview.postMessage({
                 command: 'decodeResult',
-                header: JSON.stringify(header, null, 2),
-                payload: JSON.stringify(payload, null, 2),
-                signature: signature,
-                isExpired: isExpired,
-                expirationInfo: expirationInfo,
+                header: JSON.stringify(result.header, null, 2),
+                payload: JSON.stringify(result.payload, null, 2),
+                signature: result.signature,
+                isExpired: result.isExpired,
+                expirationInfo: result.expirationInfo,
             });
         } catch (error) {
             this._panel.webview.postMessage({
@@ -75,14 +110,6 @@ export class JWTPanel {
                 message: `Decoding error: ${error instanceof Error ? error.message : String(error)}`,
             });
         }
-    }
-
-    private decodeSegment(segment: string, fieldName: string): string {
-        if (!/^[A-Za-z0-9_-]+$/.test(segment)) {
-            throw new Error(`Invalid characters in JWT ${fieldName} segment.`);
-        }
-        // JWT segments are base64url-encoded.
-        return Buffer.from(segment, 'base64url').toString('utf8');
     }
 
     public dispose() {
@@ -99,7 +126,7 @@ export class JWTPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -263,8 +290,11 @@ export class JWTPanel {
         <body>
             <div class="container">
                 <h2>
-                    <svg class="header-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none">
+                        <circle cx="8" cy="8" r="4.2" fill="#ce9178" fill-opacity="0.18" stroke="#ce9178" stroke-width="1.7"/>
+                        <circle cx="8" cy="8" r="1.3" fill="#ce9178"/>
+                        <path d="M10.95 10.95l7.05 7.05" stroke="#ce9178" stroke-width="1.7" stroke-linecap="round"/>
+                        <path d="M15 15l1.7 1.7M17 13l1.8 1.8" stroke="#ce9178" stroke-width="1.7" stroke-linecap="round"/>
                     </svg>
                     JWT Debugger
                 </h2>
@@ -272,6 +302,7 @@ export class JWTPanel {
                 <div class="info">
                     <strong>JWT (JSON Web Token)</strong> is a compact, URL-safe means of representing claims to be transferred between two parties.
                     Paste your JWT token below to decode and inspect its header, payload, and signature.
+                    This tool does not verify the signature or establish that the token is trustworthy.
                 </div>
 
                 <div class="input-group">

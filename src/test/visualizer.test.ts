@@ -347,7 +347,8 @@ suite('RAMLParser', () => {
     });
 
     test('parses response codes', () => {
-        const raml = '#%RAML 1.0\ntitle: API\n/accounts:\n  get:\n    responses:\n      200:\n        description: OK\n      404:\n        description: Not Found';
+        const raml =
+            '#%RAML 1.0\ntitle: API\n/accounts:\n  get:\n    responses:\n      200:\n        description: OK\n      404:\n        description: Not Found';
         const result = parser.parse(raml);
         assert.ok(result['/accounts'].get.responses[200]);
         assert.ok(result['/accounts'].get.responses[404]);
@@ -461,6 +462,17 @@ suite('DataTransformer.jsonToGraph – depth and node counts', () => {
         assert.ok(graph.edges.some((e) => e.label === 'data'));
         assert.ok(graph.edges.some((e) => e.label === 'users'));
     });
+
+    test('stops building when the graph node limit is exceeded', () => {
+        const result = DataTransformer.jsonToGraph(
+            Array.from({ length: 100 }, (_, index) => index),
+            25,
+        );
+        assert.strictEqual(result.exceededLimit, true);
+        assert.strictEqual(result.totalNodes, 26);
+        assert.deepStrictEqual(result.nodes, []);
+        assert.deepStrictEqual(result.edges, []);
+    });
 });
 
 suite('DataTransformer.jsonToGraph – node properties', () => {
@@ -567,7 +579,8 @@ suite('DataTransformer.jsonToGraph – from parsers', () => {
     });
 
     test('RAML parsed data produces graph with title key', () => {
-        const raml = '#%RAML 1.0\ntitle: Demo API\n/accounts:\n  get:\n    responses:\n      200:\n        body:\n          application/json: {}';
+        const raml =
+            '#%RAML 1.0\ntitle: Demo API\n/accounts:\n  get:\n    responses:\n      200:\n        body:\n          application/json: {}';
         const parsed = new RAMLParser().parse(raml);
         const graph = DataTransformer.jsonToGraph(parsed);
         assert.ok(graph.nodes.length > 1);
@@ -575,15 +588,17 @@ suite('DataTransformer.jsonToGraph – from parsers', () => {
     });
 
     test('deeply nested JSON produces edges for all levels', () => {
-        const data = JSON.parse(JSON.stringify({
-            name: 'Sample',
-            data: {
-                users: [
-                    { id: 1, name: 'Alice', active: true },
-                    { id: 2, name: 'Bob', active: false },
-                ],
-            },
-        }));
+        const data = JSON.parse(
+            JSON.stringify({
+                name: 'Sample',
+                data: {
+                    users: [
+                        { id: 1, name: 'Alice', active: true },
+                        { id: 2, name: 'Bob', active: false },
+                    ],
+                },
+            }),
+        );
         const graph = DataTransformer.jsonToGraph(data);
         assert.ok(graph.edges.some((e) => e.label === 'data'));
         assert.ok(graph.edges.some((e) => e.label === 'users'));

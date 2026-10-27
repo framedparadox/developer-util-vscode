@@ -1,12 +1,6 @@
 import * as assert from 'assert';
 import * as crypto from 'crypto';
-import {
-    AesOperationSettings,
-    decodeData,
-    decryptAes,
-    encodeData,
-    encryptAes,
-} from '../security/aesEngine';
+import { AesOperationSettings, decodeData, decryptAes, encodeData, encryptAes } from '../security/aesEngine';
 
 function createSettings(overrides: Partial<AesOperationSettings> = {}): AesOperationSettings {
     return {
@@ -29,10 +23,21 @@ function createSettings(overrides: Partial<AesOperationSettings> = {}): AesOpera
     };
 }
 
-function customKeySettings(keySize: 128 | 192 | 256 = 256, mode: 'CBC' | 'CFB' | 'CTR' | 'OFB' | 'ECB' = 'CBC'): AesOperationSettings {
+function customKeySettings(
+    keySize: 128 | 192 | 256 = 256,
+    mode: 'CBC' | 'CFB' | 'CTR' | 'OFB' | 'ECB' = 'CBC',
+): AesOperationSettings {
     const keyHex = crypto.randomBytes(keySize / 8).toString('hex');
     const ivHex = crypto.randomBytes(16).toString('hex');
-    return createSettings({ keyType: 'custom', keySize, mode, keyEncoding: 'hex', ivEncoding: 'hex', key: keyHex, iv: ivHex });
+    return createSettings({
+        keyType: 'custom',
+        keySize,
+        mode,
+        keyEncoding: 'hex',
+        ivEncoding: 'hex',
+        key: keyHex,
+        iv: ivHex,
+    });
 }
 
 const availableCiphers = new Set(crypto.getCiphers());
@@ -123,7 +128,9 @@ suite('AES Engine – key sizes and modes', () => {
 
     for (const keySize of keySizes) {
         for (const mode of blockModes) {
-            if (!isCipherSupported(keySize, mode)) { continue; }
+            if (!isCipherSupported(keySize, mode)) {
+                continue;
+            }
 
             test(`round-trip: ${keySize}-bit ${mode} with custom key (Pkcs7)`, () => {
                 const settings = customKeySettings(keySize, mode);
@@ -134,7 +141,9 @@ suite('AES Engine – key sizes and modes', () => {
         }
 
         for (const mode of streamModes) {
-            if (!isCipherSupported(keySize, mode)) { continue; }
+            if (!isCipherSupported(keySize, mode)) {
+                continue;
+            }
 
             test(`round-trip: ${keySize}-bit ${mode} with custom key (stream mode)`, () => {
                 const settings = customKeySettings(keySize, mode);
@@ -150,7 +159,7 @@ suite('AES Engine – key sizes and modes', () => {
 
 suite('AES Engine – padding schemes', () => {
     const blockAligned = Buffer.from('0011223344556677', 'hex'); // exactly 8 bytes, needs padding to 16
-    const nonAligned = Buffer.from('Hello, World!', 'utf8');     // 13 bytes
+    const nonAligned = Buffer.from('Hello, World!', 'utf8'); // 13 bytes
 
     const paddings = ['Pkcs7', 'Iso97971', 'AnsiX923', 'Iso10126', 'ZeroPadding'] as const;
 
@@ -275,7 +284,7 @@ suite('AES Engine – salt handling', () => {
     test('custom salt: throws if salt is not exactly 8 bytes', () => {
         const settings = createSettings({
             saltType: 'custom',
-            salt: 'aabbccdd',   // only 4 bytes
+            salt: 'aabbccdd', // only 4 bytes
             saltEncoding: 'hex',
         });
         assert.throws(() => encryptAes(input, settings), /Salt must be 64 bits/);
@@ -379,12 +388,17 @@ suite('AES Engine – key derivation', () => {
 
     test('invalid iteration (0) throws', () => {
         const settings = createSettings({ keyType: 'PBKDF2', iteration: 0 });
-        assert.throws(() => encryptAes(input, settings), /Iteration must be a positive integer/);
+        assert.throws(() => encryptAes(input, settings), /Iteration must be an integer between/);
     });
 
     test('invalid iteration (negative) throws', () => {
         const settings = createSettings({ keyType: 'PBKDF2', iteration: -1 });
-        assert.throws(() => encryptAes(input, settings), /Iteration must be a positive integer/);
+        assert.throws(() => encryptAes(input, settings), /Iteration must be an integer between/);
+    });
+
+    test('excessive iteration count is rejected', () => {
+        const settings = createSettings({ keyType: 'PBKDF2', iteration: 1_000_001 });
+        assert.throws(() => encryptAes(input, settings), /Iteration must be an integer between/);
     });
 });
 
@@ -402,7 +416,7 @@ suite('AES Engine – custom key/IV validation', () => {
             mode: 'CBC',
             keyEncoding: 'hex',
             ivEncoding: 'hex',
-            key: 'aabbccdd',           // 4 bytes instead of 32
+            key: 'aabbccdd', // 4 bytes instead of 32
             iv: validIv,
         });
         assert.throws(() => encryptAes(input, settings), /Key must be 256 bits/);
@@ -416,13 +430,15 @@ suite('AES Engine – custom key/IV validation', () => {
             keyEncoding: 'hex',
             ivEncoding: 'hex',
             key: validKey256,
-            iv: 'aabb',               // 2 bytes instead of 16
+            iv: 'aabb', // 2 bytes instead of 16
         });
         assert.throws(() => encryptAes(input, settings), /IV must be 128 bits/);
     });
 
     test('ECB mode ignores IV (no IV error)', () => {
-        if (!isCipherSupported(256, 'ECB')) { return; }
+        if (!isCipherSupported(256, 'ECB')) {
+            return;
+        }
         const aligned = Buffer.alloc(16, 0x42);
         const settings = createSettings({
             keyType: 'custom',
@@ -432,7 +448,7 @@ suite('AES Engine – custom key/IV validation', () => {
             keyEncoding: 'hex',
             ivEncoding: 'hex',
             key: validKey256,
-            iv: '',                   // ECB needs no IV
+            iv: '', // ECB needs no IV
         });
         const encrypted = encryptAes(aligned, settings);
         const decrypted = decryptAes(encrypted, settings);
@@ -446,7 +462,7 @@ suite('AES Engine – custom key/IV validation', () => {
             mode: 'CBC',
             keyEncoding: 'hex',
             ivEncoding: 'hex',
-            key: validKey256,         // 32 bytes, but 128-bit key needs 16
+            key: validKey256, // 32 bytes, but 128-bit key needs 16
             iv: validIv,
         });
         assert.throws(() => encryptAes(input, settings), /Key must be 128 bits/);
@@ -457,7 +473,9 @@ suite('AES Engine – custom key/IV validation', () => {
 
 suite('AES Engine – ECB determinism', () => {
     test('same key + plaintext always produces same ciphertext', () => {
-        if (!isCipherSupported(256, 'ECB')) { return; }
+        if (!isCipherSupported(256, 'ECB')) {
+            return;
+        }
         const key = crypto.randomBytes(32).toString('hex');
         const settings = createSettings({
             keyType: 'custom',
@@ -483,7 +501,9 @@ suite('AES Engine – PBKDF2 all modes round-trip', () => {
     const input = Buffer.from('PBKDF2 all modes test payload.', 'utf8');
 
     for (const mode of allModes) {
-        if (!isCipherSupported(256, mode)) { continue; }
+        if (!isCipherSupported(256, mode)) {
+            continue;
+        }
 
         test(`PBKDF2 round-trip: mode=${mode}`, () => {
             const settings = createSettings({

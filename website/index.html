@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Developer Utility Tools for VS Code — 70 offline tools in your editor</title>
+<meta name="description" content="Offline developer utilities for VS Code: encoding, hashing, JWT, UUID, time, network, text, formatting, conversion, visualization and certificates. Open any tool from the Activity Bar. Your input never leaves the editor.">
+<meta name="theme-color" content="#ffffff">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Developer Utility Tools for VS Code">
+<meta property="og:description" content="70 offline developer utilities, one sidebar. Encode, hash, sign, convert, visualize — privately.">
+<meta property="og:image" content="assets/hash.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/logo.png">
+<script>
+(function(){var d=document.documentElement;d.className='';var t;try{t=localStorage.getItem('theme')}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.setAttribute('data-theme',t);
+var m=document.querySelector('meta[name=theme-color]');if(m&&t==='dark')m.content='#000000'})();
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+.hero .win img{border-top:1px solid var(--win-line)}
+.shots{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.shot{padding:0}.shot .copy{padding:32px 32px 20px}
+.shot .win{margin:0 24px 0;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;box-shadow:none}
+.side{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:center}
+.side .win{max-width:260px;margin:0 auto;align-self:start}
+.fmt{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.fmt span{font-family:var(--mono);font-size:12.5px;padding:5px 10px;border-radius:8px;background:var(--card-2);color:var(--text-2)}
+.card.dark .fmt span{background:#1d1d1f;color:#d2d2d7}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.cat{background:var(--card);border-radius:20px;padding:22px;text-align:center;border:1px solid var(--line)}
+.cat b{display:block;font-size:40px;letter-spacing:-.03em;line-height:1.1}.cat span{color:var(--text-2);font-size:15px}
+@media(max-width:900px){.shots{grid-template-columns:1fr}.side{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="">
+<a class="sr" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="24" height="24">Developer Utility Tools</a>
+  <ul id="links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#tools">All tools</a></li>
+    <li><a href="#sidebar">Sidebar</a></li>
+    <li><a href="#privacy">Privacy</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <div class="nav-end">
+    <button class="icon-btn" id="theme" aria-label="Toggle light and dark mode" title="Toggle theme">
+      <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <a class="btn sm" href="https://marketplace.visualstudio.com/items?itemName=framedparadox.dev-x">Install</a>
+    <button class="icon-btn menu-btn" id="menu" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button>
+  </div>
+</div></header>
+
+<main id="main">
+<section class="hero" id="top" style="padding-bottom:0">
+<div class="wrap">
+  <p class="eyebrow">Developer Utility Tools</p>
+  <h1>Every little tool. <span class="grad">Zero tabs.</span></h1>
+  <p class="lead">Seventy offline utilities for encoding, hashing, tokens, time, networking, text and data — one click away in VS Code.</p>
+  <div class="cta">
+    <a class="btn" href="https://marketplace.visualstudio.com/items?itemName=framedparadox.dev-x">Install for VS Code</a>
+    <a class="btn ghost" href="#tools">Explore the tools</a>
+  </div>
+  <div class="install"><code>ext install framedparadox.dev-x</code><button data-copy="ext install framedparadox.dev-x">Copy</button></div>
+  <p class="fine">Free and open source · MIT license · VS Code 1.105 or later · Also on <a href="https://open-vsx.org/extension/framedparadox/dev-x">Open VSX</a></p>
+  <div class="stage rv">
+    <div class="win"><div class="win-bar"><i></i><i></i><i></i><span>Hash Generator</span></div>
+      <img src="assets/hash.png" width="1960" height="1120" alt="Hash Generator panel showing MD5, SHA-1 and SHA-256 output inside VS Code"></div>
+  </div>
+</div>
+</section>
+
+<div class="wrap"><div class="stats rv">
+  <div><b id="count">70</b><span>tools in one extension</span></div>
+  <div><b>8</b><span>categories</span></div>
+  <div><b>0</b><span>analytics or telemetry</span></div>
+  <div><b>Offline</b><span>works without a connection</span></div>
+</div></div>
+
+<section id="overview">
+<div class="wrap">
+  <div class="head rv"><p class="eyebrow">Overview</p><h2>The utility belt<br>you keep reaching for.</h2><p>Stop pasting tokens, keys and payloads into random websites. Developer Utility Tools brings the whole kit into your editor — fast, private and consistent.</p></div>
+  <div class="bento">
+    <article class="card c4 rv">
+      <span class="tag">Crypto</span><h3>Encrypt, hash, sign — locally.</h3>
+      <p>AES-128/192/256 with CBC, CFB, CTR, OFB and ECB, five padding schemes and PBKDF2, EvpKDF or raw keys. Plus SHA-2 hashes, HMAC, TOTP, scrypt hashing, Ed25519/RSA key pairs, and a JWT debugger and signer.</p>
+      <div class="fmt"><span>AES</span><span>SHA-256</span><span>HMAC</span><span>JWT</span><span>TOTP</span><span>scrypt</span><span>Ed25519</span><span>RSA</span></div>
+    </article>
+    <article class="card c2 dark rv">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      <h3>Private by design</h3>
+      <p>No analytics. No uploads. Secrets are shown only in the panel that made them.</p>
+    </article>
+    <article class="card c2 rv">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+      <h3>Encode &amp; decode</h3>
+      <p>Base64, URL, HTML, hex, Base32/58, Unicode, punycode, gzip and data URIs.</p>
+    </article>
+    <article class="card c2 rv">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg></div>
+      <h3>Format &amp; convert</h3>
+      <p>JSON, XML, SQL, CSS and HTML formatters. JSON ↔ YAML ↔ XML ↔ CSV conversion.</p>
+    </article>
+    <article class="card c2 rv">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l8 1M7.5 8l3.5 8M16.5 10l-3.5 6"/></svg></div>
+      <h3>See your data</h3>
+      <p>Draw JSON, YAML, XML or CSV as an interactive graph. Pan, zoom, collapse, export SVG.</p>
+    </article>
+    <article class="card c3 rv">
+      <span class="tag">Identifiers &amp; time</span><h3>UUID v1/v4/v7, ULID, Nano ID, Snowflake.</h3>
+      <p>Generate up to 1,000 IDs at a time, with v7 values that stay ordered inside the same millisecond. Convert timestamps and explain cron expressions with the next local runs.</p>
+    </article>
+    <article class="card c3 rv">
+      <span class="tag">Network &amp; web</span><h3>Subnets, status codes, CORS, QR.</h3>
+      <p>IPv4 subnets, IPv6 ULA prefixes, MAC addresses, URL and user-agent parsing, MIME types, HTTP status lookup, CORS header drafts and Wi-Fi QR codes.</p>
+    </article>
+    <article class="card c6 rv" style="text-align:center">
+      <span class="tag">Text</span><h3>Regex, diff, globs and more.</h3>
+      <p style="max-width:44em;margin:0 auto">Test regular expressions and glob patterns, diff text, count words and reading time, sort and dedupe lines, convert case, and generate slugs and lorem ipsum.</p>
+    </article>
+  </div>
+</div>
+</section>
+
+<section class="alt" id="gallery">
+<div class="wrap">
+  <div class="head rv"><p class="eyebrow">In action</p><h2>Designed to feel native.</h2><p>Every tool opens as a clean panel that follows your VS Code theme.</p></div>
+  <div class="shots">
+    <article class="card shot rv"><div class="copy"><h3>Hash Generator</h3><p>MD5, SHA-1, SHA-256, SHA-384 and SHA-512 for text — or checksum a file up to 50 MB.</p></div><div class="win"><img loading="lazy" src="assets/hash.png" width="1960" height="1120" alt="Hash Generator computing digests locally"></div></article>
+    <article class="card shot rv"><div class="copy"><h3>Cron Parser</h3><p>Plain-English explanations for 5- and 6-field expressions, with the next local run times.</p></div><div class="win"><img loading="lazy" src="assets/cron.png" width="1960" height="1120" alt="Cron Parser explaining an expression and listing the next runs"></div></article>
+  </div>
+</div>
+</section>
+
+<section id="tools">
+<div class="wrap">
+  <div class="head rv"><p class="eyebrow">All tools</p><h2>Find the one you need.</h2><p>Search or browse by category. Everything below ships in the box.</p></div>
+  <label class="search rv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="sr">Search tools</span><input id="q" type="search" placeholder="Search 70 tools — try “jwt” or “subnet”" autocomplete="off"></label>
+  <div class="tabs rv" id="tabs" role="group" aria-label="Filter by category"></div>
+  <div class="tools" id="grid" aria-live="polite"></div>
+  <p class="empty" id="empty">No tools match that search.</p>
+</div>
+</section>
+
+<section class="alt" id="sidebar">
+<div class="wrap">
+  <div class="bento">
+    <article class="card c4 rv side" style="grid-column:span 6;padding:40px">
+      <div class="win"><div class="win-bar"><i></i><i></i><i></i></div><img loading="lazy" src="assets/sidebar.png" width="840" height="1520" alt="Activity Bar view listing developer utilities with a filter box"></div>
+      <div>
+        <span class="tag">Sidebar</span><h3>Yours to arrange.</h3>
+        <p>The Developer Utilities view lives in the Activity Bar. Filter the list, hide tools you never use, and pick the layout that suits you.</p>
+        <ul><li>Compact, simple, comfortable or icon-only layouts</li><li>Show or hide any tool from <b>Configure Sidebar</b></li><li>Reset to defaults any time</li><li>New tools appear automatically</li></ul>
+        <p style="margin-top:16px;font-size:15px">Certificate Tools, Certificate Expiry Checker, Data Visualizer and Data Converter start hidden — enable them whenever you like.</p>
+      </div>
+    </article>
+  </div>
+</div>
+</section>
+
+<section id="privacy">
+<div class="wrap">
+  <div class="head rv"><p class="eyebrow">Privacy</p><h2>What you paste stays put.</h2><p>Tool input is processed in the extension host. The extension sends no analytics and no tool content to any service.</p></div>
+  <div class="bento">
+    <article class="card c2 rv"><h3>One network call</h3><p>The only network operation is the explicit HTTP/HTTPS fetch in the AES tool’s optional URL input.</p></article>
+    <article class="card c2 rv"><h3>Secrets stay in-panel</h3><p>Passwords, keys, tokens and TOTP secrets appear only in the panel that created them.</p></article>
+    <article class="card c2 rv"><h3>Sensible limits</h3><p>Input caps (such as 10 MB for converters and Base64) keep the editor responsive and safe.</p></article>
+  </div>
+  <p class="fine" style="text-align:center;margin-top:28px"><a href="privacy.html">Read the full privacy statement</a></p>
+</div>
+</section>
+
+<section class="alt" id="faq">
+<div class="wrap">
+  <div class="head rv"><p class="eyebrow">FAQ</p><h2>Good questions.</h2></div>
+  <div class="faq rv">
+    <details><summary>Does it work offline?</summary><p>Yes. Every tool runs inside VS Code’s Node runtime with bundled libraries. The sole exception is the AES tool’s optional URL input, which fetches only a URL you choose.</p></details>
+    <details><summary>Does the JWT Debugger verify signatures?</summary><p>No. It decodes the header and payload and checks numeric <code>exp</code> and <code>nbf</code> claims. The JWT Signer creates HS256, HS384 or HS512 tokens locally, which doesn’t imply a third party issued them.</p></details>
+    <details><summary>Is the Password Hasher bcrypt-compatible?</summary><p>No. It creates and checks a local scrypt hash, and the string format is not bcrypt-compatible.</p></details>
+    <details><summary>Can I hide tools I don’t use?</summary><p>Yes. Run <b>Developer Utilities: Configure Sidebar</b> to show or hide any tool and choose a layout.</p></details>
+    <details><summary>What do I need installed?</summary><p>Just VS Code 1.105 or later. No extra runtime is required.</p></details>
+    <details><summary>Where do I report issues?</summary><p>Open an issue on <a href="https://github.com/framedparadox/developer-util-vscode/issues">GitHub</a>. Release notes live in the <a href="https://github.com/framedparadox/developer-util-vscode/blob/HEAD/CHANGELOG.md">changelog</a>.</p></details>
+  </div>
+</div>
+</section>
+
+<section class="band">
+<div class="wrap rv">
+  <h2>Close the browser tabs.</h2>
+  <p>Get the whole developer toolbox, right inside VS Code.</p>
+  <div class="cta"><a class="btn" href="https://marketplace.visualstudio.com/items?itemName=framedparadox.dev-x">Install for VS Code</a><a class="btn ghost" href="https://github.com/framedparadox/developer-util-vscode">View on GitHub</a></div>
+</div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <div class="cols">
+    <div class="links"><a href="https://marketplace.visualstudio.com/items?itemName=framedparadox.dev-x">VS Code Marketplace</a><a href="https://open-vsx.org/extension/framedparadox/dev-x">Open VSX</a><a href="https://github.com/framedparadox/developer-util-vscode">Source</a><a href="https://github.com/framedparadox/developer-util-vscode/issues">Issues</a><a href="https://github.com/framedparadox/developer-util-vscode/blob/HEAD/CHANGELOG.md">Changelog</a></div>
+    <div class="links"><a href="privacy.html">Privacy</a><a href="https://github.com/framedparadox/developer-util-vscode/blob/HEAD/LICENSE">MIT License</a><a href="https://github.com/framedparadox/cert-util-vscode">Also: Certificate Utility</a></div>
+  </div>
+  <p>© <span id="year">2026</span> framedparadox. Developer Utility Tools is an independent open-source project and is not affiliated with Microsoft or Apple.</p>
+</div></footer>
+<script src="tools.js"></script>
+<script>
+(function(){
+  var T=window.TOOLS||[],cats=['All'],grid=document.getElementById('grid'),tabs=document.getElementById('tabs'),q=document.getElementById('q'),empty=document.getElementById('empty'),cur='All';
+  T.forEach(function(t){if(cats.indexOf(t[0])<0)cats.push(t[0])});
+  document.getElementById('count').textContent=T.length;
+  function esc(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+  function render(){
+    var s=q.value.trim().toLowerCase(),n=0,h='';
+    T.forEach(function(t){
+      if(cur!=='All'&&t[0]!==cur)return;
+      if(s&&(t[1]+' '+t[2]+' '+t[0]).toLowerCase().indexOf(s)<0)return;
+      n++;h+='<div class="tool"><em>'+esc(t[0])+'</em><b>'+esc(t[1])+'</b><small>'+esc(cap(t[2]))+'</small></div>';
+    });
+    grid.innerHTML=h;empty.style.display=n?'none':'block';
+  }
+  cats.forEach(function(c){var b=document.createElement('button');b.className='tab';b.type='button';b.textContent=c;b.setAttribute('aria-pressed',c===cur);
+    b.addEventListener('click',function(){cur=c;[].forEach.call(tabs.children,function(x){x.setAttribute('aria-pressed',x===b)});render()});tabs.appendChild(b)});
+  q.addEventListener('input',render);render();
+})();
+</script>
+<script src="site.js"></script>
+</body>
+</html>

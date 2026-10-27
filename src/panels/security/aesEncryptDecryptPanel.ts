@@ -1,11 +1,75 @@
 import * as crypto from 'crypto';
+import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
 import * as vscode from 'vscode';
-import { AesDataEncoding, AesOperationSettings, decodeData, decryptAes, encodeData, encryptAes } from '../../security/aesEngine';
+import {
+    AesDataEncoding,
+    AesOperationSettings,
+    decodeData,
+    decryptAes,
+    encodeData,
+    encryptAes,
+} from '../../security/aesEngine';
 
 type AesOperation = 'encrypt' | 'decrypt';
 type AesSourceType = 'text' | 'file' | 'url';
+const MAX_INPUT_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Returns true for an IP literal (IPv4 or IPv6) that falls in loopback,
+ * link-local, or private network ranges. Used both to reject obvious IP
+ * literals in the URL and to validate the address actually resolved by DNS,
+ * since checking the hostname string alone is bypassable via DNS rebinding
+ * (a hostname that resolves to e.g. 169.254.169.254).
+ */
+function isBlockedIpLiteral(ipAddress: string): boolean {
+    const host = ipAddress.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+
+    // IPv6 loopback (::1) and unique-local / link-local ranges (fc00::/7, fe80::/10).
+    if (host === '::1' || host === '::' || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) {
+        return true;
+    }
+
+    // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1) — strip the prefix and re-check.
+    const mapped = host.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+    const ipv4 = mapped ? mapped[1] : host;
+
+    const octets = ipv4.split('.');
+    if (octets.length === 4 && octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)) {
+        const [a, b] = octets.map(Number);
+        if (a === 127 || a === 0 || a === 10) {
+            return true; // loopback, "this host", 10.0.0.0/8
+        }
+        if (a === 169 && b === 254) {
+            return true; // link-local incl. 169.254.169.254 metadata endpoint
+        }
+        if (a === 172 && b >= 16 && b <= 31) {
+            return true; // 172.16.0.0/12
+        }
+        if (a === 192 && b === 168) {
+            return true; // 192.168.0.0/16
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Returns true for hostnames that are themselves blocked literals
+ * (localhost, or an IP literal in a blocked range). This is a fast,
+ * pre-DNS check; the actual resolved address is validated separately
+ * in fetchUrlContent before connecting.
+ */
+function isBlockedHost(hostname: string): boolean {
+    const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+
+    if (host === 'localhost' || host.endsWith('.localhost')) {
+        return true;
+    }
+
+    return isBlockedIpLiteral(host);
+}
 
 interface ProcessAesMessage {
     command: 'processAes';
@@ -36,7 +100,7 @@ export class AesEncryptDecryptPanel {
                 }
             },
             null,
-            this._disposables
+            this._disposables,
         );
     }
 
@@ -132,22 +196,37 @@ export class AesEncryptDecryptPanel {
     }
 
     private async resolveInput(message: ProcessAesMessage): Promise<Buffer> {
+        let input: Buffer;
         switch (message.sourceType) {
             case 'text':
-                return decodeData(message.inputText ?? '', message.inputEncoding, 'Input');
+                if (Buffer.byteLength(message.inputText ?? '', 'utf8') > MAX_INPUT_BYTES) {
+                    throw new Error('AES input exceeds the 10 MB limit.');
+                }
+                input = decodeData(message.inputText ?? '', message.inputEncoding, 'Input');
+                break;
             case 'file':
                 if (!message.fileDataBase64) {
                     throw new Error('Please provide a file input.');
                 }
-                return Buffer.from(message.fileDataBase64, 'base64');
+                if (message.fileDataBase64.length > Math.ceil((MAX_INPUT_BYTES * 4) / 3) + 4) {
+                    throw new Error('AES input exceeds the 10 MB limit.');
+                }
+                input = decodeData(message.fileDataBase64, 'base64', 'File input');
+                break;
             case 'url':
                 if (!message.url?.trim()) {
                     throw new Error('Please provide a URL.');
                 }
-                return this.fetchUrlContent(message.url.trim());
+                input = await this.fetchUrlContent(message.url.trim());
+                break;
             default:
                 throw new Error(`Unsupported input type: ${message.sourceType}`);
         }
+
+        if (input.length > MAX_INPUT_BYTES) {
+            throw new Error('AES input exceeds the 10 MB limit.');
+        }
+        return input;
     }
 
     private async fetchUrlContent(rawUrl: string, redirectCount = 0): Promise<Buffer> {
@@ -165,6 +244,34 @@ export class AesEncryptDecryptPanel {
         if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
             throw new Error('Only HTTP/HTTPS URLs are supported.');
         }
+        if (parsedUrl.username || parsedUrl.password) {
+            throw new Error('URLs containing embedded credentials are not supported.');
+        }
+        // Block requests to loopback, link-local, and private network hosts to
+        // avoid SSRF against local services or the cloud metadata endpoint. This
+        // runs again on every redirect hop because fetchUrlContent recurses.
+        if (isBlockedHost(parsedUrl.hostname)) {
+            throw new Error('Refusing to fetch URLs that target local or private network addresses.');
+        }
+
+        // Resolve DNS ourselves and validate the resolved address before connecting.
+        // Checking the hostname string alone is bypassable via DNS rebinding (a
+        // public-looking hostname that resolves to a loopback/private/metadata IP),
+        // so we pin the connection to this validated address via the `lookup` option
+        // rather than letting Node re-resolve the hostname at connect time.
+        const resolvedAddress = await new Promise<{ address: string; family: number }>((resolve, reject) => {
+            dns.lookup(parsedUrl.hostname, (error, address, family) => {
+                if (error) {
+                    reject(new Error(`Failed to resolve URL host: ${error.message}`));
+                    return;
+                }
+                resolve({ address, family });
+            });
+        });
+
+        if (isBlockedIpLiteral(resolvedAddress.address)) {
+            throw new Error('Refusing to fetch URLs that target local or private network addresses.');
+        }
 
         return new Promise<Buffer>((resolve, reject) => {
             const requestLib = parsedUrl.protocol === 'https:' ? https : http;
@@ -176,6 +283,9 @@ export class AesEncryptDecryptPanel {
                     headers: {
                         'User-Agent': 'devx-vscode-aes-tool',
                     },
+                    lookup: (_hostname, _options, callback) => {
+                        callback(null, resolvedAddress.address, resolvedAddress.family);
+                    },
                 },
                 (response) => {
                     const statusCode = response.statusCode ?? 0;
@@ -185,9 +295,16 @@ export class AesEncryptDecryptPanel {
                             reject(new Error(`Redirect (${statusCode}) received without a location header.`));
                             return;
                         }
-                        const redirectUrl = new URL(location, parsedUrl).toString();
+                        const redirectUrl = new URL(location, parsedUrl);
+                        if (parsedUrl.protocol === 'https:' && redirectUrl.protocol !== 'https:') {
+                            response.resume();
+                            reject(new Error('Refusing to follow an HTTPS redirect to an insecure URL.'));
+                            return;
+                        }
                         response.resume();
-                        this.fetchUrlContent(redirectUrl, redirectCount + 1).then(resolve).catch(reject);
+                        this.fetchUrlContent(redirectUrl.toString(), redirectCount + 1)
+                            .then(resolve)
+                            .catch(reject);
                         return;
                     }
 
@@ -197,14 +314,29 @@ export class AesEncryptDecryptPanel {
                         return;
                     }
 
+                    const declaredLength = Number(response.headers['content-length']);
+                    if (Number.isFinite(declaredLength) && declaredLength > MAX_INPUT_BYTES) {
+                        response.resume();
+                        reject(new Error('URL content exceeds the 10 MB limit.'));
+                        return;
+                    }
+
                     const chunks: Buffer[] = [];
+                    let receivedBytes = 0;
                     response.on('data', (chunk: Buffer | string) => {
-                        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+                        receivedBytes += buffer.length;
+                        if (receivedBytes > MAX_INPUT_BYTES) {
+                            response.destroy();
+                            reject(new Error('URL content exceeds the 10 MB limit.'));
+                            return;
+                        }
+                        chunks.push(buffer);
                     });
                     response.on('end', () => {
                         resolve(Buffer.concat(chunks));
                     });
-                }
+                },
             );
 
             request.setTimeout(10000, () => {
@@ -221,7 +353,7 @@ export class AesEncryptDecryptPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const nonce = crypto.randomBytes(16).toString('base64url');
-        const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
+        const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -533,9 +665,9 @@ export class AesEncryptDecryptPanel {
     <div class="container">
         <h2>
             <svg class="header-icon" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L4 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-8-3z" fill="#2aa198"/>
-                <rect x="8" y="11" width="8" height="6" rx="1" fill="#f9a825"/>
-                <path d="M10 11V9.5a2 2 0 1 1 4 0V11" stroke="#f9a825" stroke-width="1.2"/>
+                <path d="M12 2.5l7 2.6v5.4c0 4.95-3.3 9.25-7 10.5-3.7-1.25-7-5.55-7-10.5V5.1l7-2.6z" fill="#4CAF50" fill-opacity="0.18" stroke="#4CAF50" stroke-width="1.6" stroke-linejoin="round"/>
+                <circle cx="12" cy="10.8" r="1.8" fill="#2E7D32"/>
+                <path d="M12 12.4v3" stroke="#2E7D32" stroke-width="1.9" stroke-linecap="round"/>
             </svg>
             AES Encrypt / Decrypt
         </h2>
@@ -610,6 +742,7 @@ export class AesEncryptDecryptPanel {
                             <option value="NoPadding">NoPadding</option>
                         </select>
                         <div class="hint" id="paddingHint" style="display:none;">Padding is ignored for CFB/CTR/OFB.</div>
+                        <div class="hint" id="ecbHint" style="display:none;">ECB mode uses no IV and does not hide data patterns. Avoid it unless required for compatibility.</div>
                     </div>
                     <div class="field">
                         <label for="keyType">Key Type</label>
@@ -760,6 +893,7 @@ export class AesEncryptDecryptPanel {
         const modeEl = document.getElementById('mode');
         const paddingEl = document.getElementById('padding');
         const paddingHintEl = document.getElementById('paddingHint');
+        const ecbHintEl = document.getElementById('ecbHint');
         const keyTypeEl = document.getElementById('keyType');
         const hashEl = document.getElementById('hash');
         const saltTypeEl = document.getElementById('saltType');
@@ -819,6 +953,7 @@ export class AesEncryptDecryptPanel {
             const blockMode = isBlockMode(modeEl.value);
             paddingEl.disabled = !blockMode;
             paddingHintEl.style.display = blockMode ? 'none' : 'block';
+            ecbHintEl.style.display = modeEl.value === 'ECB' ? 'block' : 'none';
         }
 
         function updateIterationState() {

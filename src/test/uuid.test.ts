@@ -4,6 +4,7 @@
  */
 import * as assert from 'assert';
 import * as crypto from 'crypto';
+import { decodeBase64 } from '../panels/base64Panel';
 
 // ─── Pure logic (mirrors UUIDPanel private methods) ───────────────────────────
 
@@ -35,7 +36,8 @@ function uuidv7(): string {
     const timeMid16 = timeHex.substring(8, 12);
 
     const randBytes = crypto.randomBytes(10);
-    const ver = ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
+    const ver =
+        ((randBytes[0] & 0x0f) | 0x70).toString(16).padStart(2, '0') + randBytes[1].toString(16).padStart(2, '0');
     randBytes[2] = (randBytes[2] & 0x3f) | 0x80;
     const variant = randBytes.toString('hex', 2, 4);
     const node = randBytes.toString('hex', 4, 10);
@@ -55,8 +57,12 @@ function uuidVersion(uuid: string): number {
 
 function uuidVariant(uuid: string): string {
     const variantChar = parseInt(uuid[19], 16);
-    if ((variantChar & 0b1100) === 0b1000) {return 'RFC4122';}
-    if ((variantChar & 0b1100) === 0b1100) {return 'Microsoft';}
+    if ((variantChar & 0b1100) === 0b1000) {
+        return 'RFC4122';
+    }
+    if ((variantChar & 0b1100) === 0b1100) {
+        return 'Microsoft';
+    }
     return 'NCS';
 }
 
@@ -72,7 +78,12 @@ suite('UUIDPanel – Null UUID', () => {
     });
 
     test('all hex chars are 0', () => {
-        assert.ok(nullUUID().replace(/-/g, '').split('').every((c) => c === '0'));
+        assert.ok(
+            nullUUID()
+                .replace(/-/g, '')
+                .split('')
+                .every((c) => c === '0'),
+        );
     });
 
     test('is always the same value', () => {
@@ -106,13 +117,13 @@ suite('UUIDPanel – UUID v1', () => {
 
     test('50 generated UUIDs all have correct format', () => {
         Array.from({ length: 50 }, () => uuidv1()).forEach((u) =>
-            assert.ok(UUID_REGEX.test(u), `invalid format: ${u}`)
+            assert.ok(UUID_REGEX.test(u), `invalid format: ${u}`),
         );
     });
 
     test('50 generated UUIDs all have version 1', () => {
         Array.from({ length: 50 }, () => uuidv1()).forEach((u) =>
-            assert.strictEqual(uuidVersion(u), 1, `wrong version in: ${u}`)
+            assert.strictEqual(uuidVersion(u), 1, `wrong version in: ${u}`),
         );
     });
 
@@ -147,13 +158,13 @@ suite('UUIDPanel – UUID v4', () => {
 
     test('100 generated UUIDs all have version 4', () => {
         Array.from({ length: 100 }, () => uuidv4()).forEach((u) =>
-            assert.strictEqual(uuidVersion(u), 4, `wrong version in: ${u}`)
+            assert.strictEqual(uuidVersion(u), 4, `wrong version in: ${u}`),
         );
     });
 
     test('100 generated UUIDs all have RFC4122 variant', () => {
         Array.from({ length: 100 }, () => uuidv4()).forEach((u) =>
-            assert.strictEqual(uuidVariant(u), 'RFC4122', `wrong variant in: ${u}`)
+            assert.strictEqual(uuidVariant(u), 'RFC4122', `wrong variant in: ${u}`),
         );
     });
 });
@@ -184,13 +195,13 @@ suite('UUIDPanel – UUID v7', () => {
 
     test('50 generated UUIDs all have version 7', () => {
         Array.from({ length: 50 }, () => uuidv7()).forEach((u) =>
-            assert.strictEqual(uuidVersion(u), 7, `wrong version in: ${u}`)
+            assert.strictEqual(uuidVersion(u), 7, `wrong version in: ${u}`),
         );
     });
 
     test('50 generated UUIDs all have RFC4122 variant', () => {
         Array.from({ length: 50 }, () => uuidv7()).forEach((u) =>
-            assert.strictEqual(uuidVariant(u), 'RFC4122', `wrong variant in: ${u}`)
+            assert.strictEqual(uuidVariant(u), 'RFC4122', `wrong variant in: ${u}`),
         );
     });
 
@@ -201,16 +212,20 @@ suite('UUIDPanel – UUID v7', () => {
 
         const timeHexFromUUID = uuid.replace(/-/g, '').substring(0, 12);
         const msFromUUID = parseInt(timeHexFromUUID, 16);
-        assert.ok(msFromUUID >= before - 10 && msFromUUID <= after + 10,
-            `timestamp ${msFromUUID} not in range [${before}, ${after}]`);
+        assert.ok(
+            msFromUUID >= before - 10 && msFromUUID <= after + 10,
+            `timestamp ${msFromUUID} not in range [${before}, ${after}]`,
+        );
     });
 
     test('monotonically increasing within tight loop (sortable)', () => {
         const uuids = Array.from({ length: 20 }, () => uuidv7());
         const timestamps = uuids.map((u) => parseInt(u.replace(/-/g, '').substring(0, 12), 16));
         for (let i = 1; i < timestamps.length; i++) {
-            assert.ok(timestamps[i] >= timestamps[i - 1],
-                `UUID ${i} timestamp ${timestamps[i]} < previous ${timestamps[i - 1]}`);
+            assert.ok(
+                timestamps[i] >= timestamps[i - 1],
+                `UUID ${i} timestamp ${timestamps[i]} < previous ${timestamps[i - 1]}`,
+            );
         }
     });
 });
@@ -224,7 +239,7 @@ suite('Base64Panel – encode/decode logic', () => {
     });
 
     test('decodes base64 to plain text', () => {
-        const decoded = Buffer.from('SGVsbG8sIFdvcmxkIQ==', 'base64').toString('utf8');
+        const decoded = decodeBase64('SGVsbG8sIFdvcmxkIQ==').toString('utf8');
         assert.strictEqual(decoded, 'Hello, World!');
     });
 
@@ -233,13 +248,13 @@ suite('Base64Panel – encode/decode logic', () => {
     });
 
     test('decodes empty base64 string', () => {
-        assert.strictEqual(Buffer.from('', 'base64').toString('utf8'), '');
+        assert.strictEqual(decodeBase64('').toString('utf8'), '');
     });
 
     test('round-trip: encode then decode returns original', () => {
         const texts = [
             'Hello World',
-            'MuleSoft Developer Tools',
+            'Developer Utility Tools',
             '日本語テスト',
             'Special chars: !@#$%^&*()',
             '\n\r\t',
@@ -247,7 +262,7 @@ suite('Base64Panel – encode/decode logic', () => {
         ];
         texts.forEach((text) => {
             const encoded = Buffer.from(text, 'utf8').toString('base64');
-            const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+            const decoded = decodeBase64(encoded).toString('utf8');
             assert.strictEqual(decoded, text, `Failed for: ${text.substring(0, 30)}`);
         });
     });
@@ -255,7 +270,7 @@ suite('Base64Panel – encode/decode logic', () => {
     test('encodes binary-safe (arbitrary bytes)', () => {
         const bytes = Buffer.from([0x00, 0xff, 0x80, 0x7f, 0x01]);
         const encoded = bytes.toString('base64');
-        const decoded = Buffer.from(encoded, 'base64');
+        const decoded = decodeBase64(encoded);
         assert.deepStrictEqual(decoded, bytes);
     });
 
@@ -267,23 +282,28 @@ suite('Base64Panel – encode/decode logic', () => {
     test('encode JSON string', () => {
         const json = JSON.stringify({ key: 'value', count: 42 });
         const encoded = Buffer.from(json, 'utf8').toString('base64');
-        const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+        const decoded = decodeBase64(encoded).toString('utf8');
         assert.deepStrictEqual(JSON.parse(decoded), { key: 'value', count: 42 });
     });
 
     test('encode URL-like string', () => {
         const url = 'https://example.com/api?token=abc&id=123';
         const encoded = Buffer.from(url, 'utf8').toString('base64');
-        const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+        const decoded = decodeBase64(encoded).toString('utf8');
         assert.strictEqual(decoded, url);
     });
 
     test('decodes with padding variations', () => {
         // 1 padding
-        assert.strictEqual(Buffer.from('YQ==', 'base64').toString('utf8'), 'a');
+        assert.strictEqual(decodeBase64('YQ==').toString('utf8'), 'a');
         // 2 padding
-        assert.strictEqual(Buffer.from('YWI=', 'base64').toString('utf8'), 'ab');
+        assert.strictEqual(decodeBase64('YWI=').toString('utf8'), 'ab');
         // no padding
-        assert.strictEqual(Buffer.from('YWJj', 'base64').toString('utf8'), 'abc');
+        assert.strictEqual(decodeBase64('YWJj').toString('utf8'), 'abc');
+    });
+
+    test('rejects malformed Base64 instead of silently decoding it', () => {
+        assert.throws(() => decodeBase64('not base64!'), /valid Base64/);
+        assert.throws(() => decodeBase64('A'), /valid Base64/);
     });
 });
